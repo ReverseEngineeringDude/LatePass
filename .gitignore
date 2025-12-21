@@ -58,6 +58,7 @@ captures/
 .idea/dictionaries
 .idea/libraries
 .idea/caches
+/android/app/google-services.json
 *.jks
 .externalNativeBuild
 google-services.json
