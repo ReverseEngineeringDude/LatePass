@@ -1,0 +1,13 @@
+--- a/home/red/.pub-cache/hosted/pub.dev/flutter_barcode_scanner-2.0.0/android/build.gradle
++++ b/home/red/.pub-cache/hosted/pub.dev/flutter_barcode_scanner-2.0.0/android/build.gradle
+@@ -21,6 +21,10 @@
+     }
+ }
+ 
++android {
++    namespace "com.amolg.flutterbarcodescanner"
++}
++
+ dependencies {
+     implementation 'com.google.android.gms:play-services-vision:20.1.3'
+ }
