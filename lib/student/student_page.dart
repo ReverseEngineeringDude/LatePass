@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/student/view_attendance_page.dart';

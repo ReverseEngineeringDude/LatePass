@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, deprecated_member_use
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +32,6 @@ class SuperAdminPage extends StatefulWidget {
 class _SuperAdminPageState extends State<SuperAdminPage> {
   // Theme Colors
   static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color accentPurple = Color(0xFF7C3AED);
   static const Color backgroundGrey = Color(0xFFF8FAFC);
 
   final List<Map<String, dynamic>> menuItems = [
@@ -79,7 +78,6 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   ];
 
   Future<bool> _handleScan(String value) async {
-    print('Scanned value: $value');
     try {
       final studentDoc = await FirebaseFirestore.instance
           .collection('students')

@@ -7,8 +7,6 @@ import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 class ExportDataPage extends StatefulWidget {
   const ExportDataPage({super.key});
@@ -119,8 +117,9 @@ class _ExportDataPageState extends State<ExportDataPage> {
         }
 
         final fileBytes = excel.save();
-        if (fileBytes == null)
+        if (fileBytes == null) {
           throw Exception("Failed to generate Excel file.");
+        }
 
         file = File('${directory.path}/$fileName.xlsx');
         await file.writeAsBytes(fileBytes);
@@ -131,12 +130,15 @@ class _ExportDataPageState extends State<ExportDataPage> {
         await file.writeAsString(csvData);
       } else if (type == 'TXT') {
         file = File('${directory.path}/$fileName.txt');
-        
+
         // Use a CSV converter for a robust, well-formatted text table
         final List<List<String>> textRows = [_exportHeaders, ...tableData];
         // Using tabs for clear column separation in plain text
-        String textData = const ListToCsvConverter(fieldDelimiter: '\t', eol: '\n').convert(textRows);
-        
+        String textData = const ListToCsvConverter(
+          fieldDelimiter: '\t',
+          eol: '\n',
+        ).convert(textRows);
+
         final buffer = StringBuffer();
         buffer.writeln("LatePass Attendance Report");
         buffer.writeln("Generated: ${DateTime.now().toString().split('.')[0]}");
@@ -251,7 +253,8 @@ class _ExportDataPageState extends State<ExportDataPage> {
                       const SizedBox(height: 16),
                       _buildExportCard(
                         title: "Text Document (TXT)",
-                        subtitle: "Simple plain text for universal compatibility",
+                        subtitle:
+                            "Simple plain text for universal compatibility",
                         icon: Icons.description_rounded,
                         color: Colors.blueGrey,
                         onTap: () => _handleExport('TXT'),

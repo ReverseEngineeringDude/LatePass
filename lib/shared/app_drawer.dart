@@ -1,8 +1,7 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/superadmin/admin_model.dart';
@@ -26,7 +25,6 @@ class _AppDrawerState extends State<AppDrawer> {
   // Theme Colors
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentPurple = Color(0xFF7C3AED);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
 
   @override
   void initState() {

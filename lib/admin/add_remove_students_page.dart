@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, curly_braces_in_flow_control_structures, deprecated_member_use
 
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';

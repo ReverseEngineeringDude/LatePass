@@ -57,6 +57,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -71,12 +72,16 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/students.json
-    - assets/admins.json
+    - assets/logo.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package

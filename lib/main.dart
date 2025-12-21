@@ -51,8 +51,9 @@ class MyApp extends StatelessWidget {
         '/admin': (context) => const AdminPage(),
         '/student': (context) => const StudentPage(),
         '/superadmin': (context) => SuperAdminPage(
-            admins: const [],
-            onAddAdmin: (_) {}), // Admins will be loaded in AuthWrapper
+          admins: const [],
+          onAddAdmin: (_) {},
+        ), // Admins will be loaded in AuthWrapper
       },
     );
   }
@@ -75,10 +76,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<Widget> _getInitialPage() async {
     // 1. Load Admins first, as they might be needed on login page or others
-    final adminsSnapshot =
-        await FirebaseFirestore.instance.collection('admins').get();
-    admins =
-        adminsSnapshot.docs.map((doc) => Admin.fromFirestore(doc)).toList();
+    final adminsSnapshot = await FirebaseFirestore.instance
+        .collection('admins')
+        .get();
+    admins = adminsSnapshot.docs
+        .map((doc) => Admin.fromFirestore(doc))
+        .toList();
 
     // 2. Check saved user role
     final prefs = await SharedPreferences.getInstance();
@@ -91,7 +94,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
     switch (userRole) {
       case 'superadmin':
         return SuperAdminPage(
-            admins: admins, onAddAdmin: (admin) => setState(() => admins.add(admin)));
+          admins: admins,
+          onAddAdmin: (admin) => setState(() => admins.add(admin)),
+        );
       case 'admin':
         final adminData = prefs.getString('admin_data');
         if (adminData != null) {
@@ -104,12 +109,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       default:
         return LoginPage(admins: admins);
     }
-  }
-
-  void _addAdmin(Admin admin) {
-    setState(() {
-      admins.add(admin);
-    });
   }
 
   @override
@@ -126,9 +125,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
         if (snapshot.hasError) {
           return Scaffold(
-            body: Center(
-              child: Text('Error: ${snapshot.error}'),
-            ),
+            body: Center(child: Text('Error: ${snapshot.error}')),
           );
         }
         // When future completes, return the determined page
