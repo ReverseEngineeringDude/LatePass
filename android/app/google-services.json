@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "358842641404",
+    "project_id": "latepass-d0f19",
+    "storage_bucket": "latepass-d0f19.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358842641404:android:726703207dc69223f96079",
+        "android_client_info": {
+          "package_name": "com.example.latepass"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "358842641404-4ft926qs5p17mtuatkagpod20ssn5hov.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.latepass",
+            "certificate_hash": "323f349ba92b5df7754c930c3e701e75247a517c"
+          }
+        },
+        {
+          "client_id": "358842641404-gpg6k9j9samuamgtlie6v7js7k3n3ru9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6fWtOyRRNiwzIkcRy1uZ1KPnhjermBU8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "358842641404-gpg6k9j9samuamgtlie6v7js7k3n3ru9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "358842641404-p9r1ag12s9musn4q20plua0k42rkm6g4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.latepass"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

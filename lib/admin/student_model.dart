@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Student {
   final String id;
   final String name;
@@ -6,12 +8,21 @@ class Student {
 
   Student({required this.id, required this.name, required this.department, required this.year});
 
-  factory Student.fromJson(Map<String, dynamic> json) {
+  factory Student.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
     return Student(
-      id: json['id'],
-      name: json['name'],
-      department: json['department'],
-      year: json['year'],
+      id: doc.id,
+      name: data['name'] ?? '',
+      department: data['department'] ?? '',
+      year: data['year'] ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'department': department,
+      'year': year,
+    };
   }
 }
