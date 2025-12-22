@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="LatePass Logo" width="150">
+</p>
+
 # LatePass Portal
 
 A comprehensive Flutter-based mobile application designed to streamline and manage student attendance and late passes within an educational institution.
