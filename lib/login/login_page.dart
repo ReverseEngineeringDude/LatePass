@@ -1,7 +1,6 @@
 // ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, deprecated_member_use
 
 import 'dart:convert';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -26,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // In a real app, this would come from a data source
+  // SuperAdmin emails authorized for Google Login
   final List<String> _superAdminEmails = ['praveenmtdarker@gmail.com'];
 
   // UI Colors
@@ -64,6 +63,7 @@ class _LoginPageState extends State<LoginPage> {
 
       await _auth.signInWithCredential(credential);
 
+      // Save session info
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_role', 'superadmin');
       await prefs.setString('email', googleUser.email);
@@ -97,7 +97,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _signInWithEmailAndPassword() async {
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+    final String email = emailController.text.trim();
+    final String password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
@@ -106,13 +109,13 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      // 1. Authenticate with Firebase
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
 
+      // 2. Authorization Bypass Check (Email-based)
+      // Check if the authenticated email exists in our Firestore admin list
       final admin = widget.admins.firstWhere(
-        (admin) => admin.email == emailController.text.trim(),
+        (admin) => admin.email.toLowerCase() == email.toLowerCase(),
         orElse: () => Admin(
           adminId: '',
           name: '',
@@ -124,6 +127,7 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (admin.adminId.isNotEmpty) {
+        // Success: Found in admin list
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_role', 'admin');
         await prefs.setString('admin_data', jsonEncode(admin.toJson()));
@@ -137,10 +141,12 @@ class _LoginPageState extends State<LoginPage> {
           Navigator.pushReplacementNamed(context, '/admin');
         }
       } else {
+        // Authenticated but not in authorized list
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('You are not authorized as an admin'),
+            content: Text('You are not authorized as an admin in the database'),
             backgroundColor: Colors.orangeAccent,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         await _auth.signOut();
@@ -148,9 +154,13 @@ class _LoginPageState extends State<LoginPage> {
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message ?? "An error occurred"),
+          content: Text(e.message ?? "Authentication failed"),
           backgroundColor: Colors.redAccent,
         ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An unexpected error occurred')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -163,7 +173,7 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: backgroundGrey,
       body: Stack(
         children: [
-          // Background Gradient Orbs
+          // Background Aesthetic Decor
           Positioned(
             top: -100,
             right: -100,
@@ -197,7 +207,6 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // App Logo or Icon
                     const Icon(
                       Icons.lock_person_rounded,
                       size: 80,
@@ -216,7 +225,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Sign in to continue to your dashboard",
+                      "Sign in to access your dashboard",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.grey.shade600,
@@ -292,27 +301,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
 
                     const SizedBox(height: 32),
-
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: Colors.grey.shade300)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            "OR CONNECT WITH",
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        Expanded(child: Divider(color: Colors.grey.shade300)),
-                      ],
-                    ),
-
+                    _buildDivider(),
                     const SizedBox(height: 32),
 
                     // SuperAdmin Google Login
@@ -339,7 +328,6 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _isLoading ? null : _signInAnonymously,
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        foregroundColor: Colors.grey.shade700,
                       ),
                       child: RichText(
                         text: const TextSpan(
@@ -364,6 +352,27 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "OR CONNECT WITH",
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+      ],
     );
   }
 
