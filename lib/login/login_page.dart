@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // SuperAdmin emails authorized for Google Login
+  // SuperAdmin emails authorized for both Google and Email/Password Login
   final List<String> _superAdminEmails = ['praveenmtdarker@gmail.com'];
 
   // UI Colors
@@ -38,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
     String message = '$defaultPrefix failed';
     final errorStr = e.toString().toLowerCase();
 
-    // Check for network related issues specifically
+    // Catch network failures specifically
     if (errorStr.contains('socketexception') ||
         errorStr.contains('network') ||
         errorStr.contains('unavailable') ||
@@ -62,6 +62,15 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  /// Helper to check if a normalized email belongs to a SuperAdmin
+  bool _checkIsSuperAdmin(String email) {
+    final normalizedEmail = email.trim().toLowerCase();
+    return _superAdminEmails.any(
+          (e) => e.trim().toLowerCase() == normalizedEmail,
+        ) ||
+        normalizedEmail.contains('superadmin');
+  }
+
   void _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
@@ -73,14 +82,8 @@ class _LoginPageState extends State<LoginPage> {
 
       final String signedInEmail = googleUser.email.trim().toLowerCase();
 
-      // AUTHORIZATION CHECK (Email-based)
-      bool isSuperAdmin =
-          _superAdminEmails.any(
-            (e) => e.trim().toLowerCase() == signedInEmail,
-          ) ||
-          signedInEmail.contains('superadmin');
-
-      if (!isSuperAdmin) {
+      // AUTHORIZATION CHECK
+      if (!_checkIsSuperAdmin(signedInEmail)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Access Denied: $signedInEmail is not a SuperAdmin'),
@@ -141,12 +144,12 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     try {
-      // 1. Firebase Authentication
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // 1. PRE-AUTHORIZATION CHECK (Credentials matching)
+      bool isSuperAdmin = _checkIsSuperAdmin(email);
 
-      // 2. AUTHORIZATION BYPASS (Email-based)
+      // Search for an admin that matches BOTH email and password from the fetched list
       final admin = widget.admins.firstWhere(
-        (a) => (a.email).trim().toLowerCase() == email,
+        (a) => a.email.trim().toLowerCase() == email && a.password == password,
         orElse: () => Admin(
           adminId: '',
           name: '',
@@ -157,10 +160,17 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
 
-      if (admin.adminId.isNotEmpty || email.contains('superadmin')) {
+      // SuperAdmins bypass the internal list check for password, relying on Firebase Auth
+      if (isSuperAdmin || admin.adminId.isNotEmpty) {
+        // 2. Firebase Authentication (Secure verification)
+        await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+
         final prefs = await SharedPreferences.getInstance();
 
-        if (email.contains('superadmin')) {
+        if (isSuperAdmin) {
           await prefs.setString('user_role', 'superadmin');
           Navigator.pushReplacementNamed(context, '/superadmin');
         } else {
@@ -177,16 +187,24 @@ class _LoginPageState extends State<LoginPage> {
           }
         }
       } else {
+        // Handle specific failure cases for feedback
+        final emailExists = widget.admins.any(
+          (a) => a.email.trim().toLowerCase() == email,
+        );
+        String errorMessage = emailExists
+            ? 'Access Denied: Incorrect password for this admin account.'
+            : 'Authorization Failed: This email is not registered as an admin.';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Authorization Failed: Email not found in Admin database',
-            ),
+          SnackBar(
+            content: Text(errorMessage),
             backgroundColor: Colors.orangeAccent,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
-        await _auth.signOut();
       }
     } on FirebaseAuthException catch (e) {
       _showAuthError(e, 'Sign-In');
@@ -236,15 +254,11 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                           ),
                           const SizedBox(height: 48),
-
                           _buildLoginCard(),
-
                           const SizedBox(height: 32),
                           _buildDivider(),
                           const SizedBox(height: 32),
-
                           _buildGoogleButton(),
-
                           const SizedBox(height: 16),
                           _buildGuestButton(),
                           const SizedBox(height: 40),

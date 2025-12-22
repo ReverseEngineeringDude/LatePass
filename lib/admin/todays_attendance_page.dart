@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:latepass/admin/edit_attendance_page.dart';
 
 class TodaysAttendancePage extends StatefulWidget {
   const TodaysAttendancePage({super.key});
@@ -14,6 +15,37 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
   // Theme Colors consistent with the portal design
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color backgroundGrey = Color(0xFFF8FAFC);
+
+  void _deleteAttendanceRecord(String recordId) {
+    FirebaseFirestore.instance.collection('attendance').doc(recordId).delete();
+  }
+
+  void _showDeleteConfirmationDialog(String recordId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: const Text('Are you sure you want to delete this attendance record?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Delete'),
+              onPressed: () {
+                _deleteAttendanceRecord(recordId);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,16 +197,7 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   itemCount: attendanceDocs.length,
                   itemBuilder: (context, index) {
                     final attendance = attendanceDocs[index];
-                    final timestamp = attendance['timestamp'] as Timestamp?;
-                    final dateTime = timestamp?.toDate() ?? DateTime.now();
-                    final studentId = attendance['studentId'];
-                    final markedBy = attendance['markedBy'];
-
-                    return _buildAttendanceRecordCard(
-                      studentId,
-                      markedBy,
-                      dateTime,
-                    );
+                    return _buildAttendanceRecordCard(attendance);
                   },
                 );
               },
@@ -186,10 +209,12 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
   }
 
   Widget _buildAttendanceRecordCard(
-    String studentId,
-    String markedBy,
-    DateTime dateTime,
+    QueryDocumentSnapshot attendance,
   ) {
+    final timestamp = attendance['timestamp'] as Timestamp?;
+    final dateTime = timestamp?.toDate() ?? DateTime.now();
+    final studentId = attendance['studentId'];
+    final markedBy = attendance['markedBy'];
     // Manual time formatting
     int hour24 = dateTime.hour;
     int hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
@@ -243,14 +268,14 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   : 'System';
 
               return Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(16,16,0,16),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 24,
                       backgroundColor: primaryBlue.withOpacity(0.1),
                       child: Text(
-                        studentName[0].toUpperCase(),
+                        studentName.isNotEmpty ? studentName[0].toUpperCase() : 'U',
                         style: const TextStyle(
                           color: primaryBlue,
                           fontWeight: FontWeight.bold,
@@ -315,6 +340,30 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                             fontSize: 14,
                             color: primaryBlue,
                           ),
+                        ),
+                      ],
+                    ),
+                     PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                           Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditAttendancePage(attendance: attendance),
+                            ),
+                          );
+                        } else if (value == 'delete') {
+                           _showDeleteConfirmationDialog(attendance.id);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Text('Edit'),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Text('Delete'),
                         ),
                       ],
                     ),
