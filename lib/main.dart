@@ -1,7 +1,6 @@
 // ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +14,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase with platform-specific options
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const MyApp());
 }
 
@@ -30,6 +32,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'LatePass Portal',
+
+      // Modern Material 3 Theme Configuration
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -41,19 +45,17 @@ class MyApp extends StatelessWidget {
           centerTitle: true,
           elevation: 0,
           backgroundColor: Colors.white,
-          foregroundColor: Colors.white,
+          foregroundColor: Colors.black87,
         ),
       ),
+
       home: const AuthWrapper(),
       routes: {
-        '/login': (context) =>
-            const LoginPage(admins: []), // Admins will be loaded in AuthWrapper
+        '/login': (context) => const LoginPage(admins: []),
         '/admin': (context) => const AdminPage(),
         '/student': (context) => const StudentPage(),
-        '/superadmin': (context) => SuperAdminPage(
-          admins: const [],
-          onAddAdmin: (_) {},
-        ), // Admins will be loaded in AuthWrapper
+        '/superadmin': (context) =>
+            SuperAdminPage(admins: const [], onAddAdmin: (_) {}),
       },
     );
   }
@@ -74,40 +76,48 @@ class _AuthWrapperState extends State<AuthWrapper> {
     super.initState();
   }
 
+  /// Determines the initial screen based on authentication state and role
   Future<Widget> _getInitialPage() async {
-    // 1. Load Admins first, as they might be needed on login page or others
-    final adminsSnapshot = await FirebaseFirestore.instance
-        .collection('admins')
-        .get();
-    admins = adminsSnapshot.docs
-        .map((doc) => Admin.fromFirestore(doc))
-        .toList();
+    try {
+      // 1. Load Admins first for authorization checks
+      final adminsSnapshot = await FirebaseFirestore.instance
+          .collection('admins')
+          .get();
 
-    // 2. Check saved user role
-    final prefs = await SharedPreferences.getInstance();
-    final userRole = prefs.getString('user_role');
+      admins = adminsSnapshot.docs
+          .map((doc) => Admin.fromFirestore(doc))
+          .toList();
 
-    if (userRole == null) {
+      // 2. Check saved user role from persistent storage
+      final prefs = await SharedPreferences.getInstance();
+      final userRole = prefs.getString('user_role');
+
+      if (userRole == null) {
+        return LoginPage(admins: admins);
+      }
+
+      // 3. Routing based on role
+      switch (userRole) {
+        case 'superadmin':
+          return SuperAdminPage(
+            admins: admins,
+            onAddAdmin: (admin) => setState(() => admins.add(admin)),
+          );
+        case 'admin':
+          final adminData = prefs.getString('admin_data');
+          if (adminData != null) {
+            final admin = Admin.fromJson(jsonDecode(adminData));
+            return AdminPage(admin: admin);
+          }
+          return LoginPage(admins: admins);
+        case 'student':
+          return const StudentPage();
+        default:
+          return LoginPage(admins: admins);
+      }
+    } catch (e) {
+      debugPrint("Error in AuthWrapper: $e");
       return LoginPage(admins: admins);
-    }
-
-    switch (userRole) {
-      case 'superadmin':
-        return SuperAdminPage(
-          admins: admins,
-          onAddAdmin: (admin) => setState(() => admins.add(admin)),
-        );
-      case 'admin':
-        final adminData = prefs.getString('admin_data');
-        if (adminData != null) {
-          final admin = Admin.fromJson(jsonDecode(adminData));
-          return AdminPage(admin: admin);
-        }
-        return LoginPage(admins: admins);
-      case 'student':
-        return const StudentPage();
-      default:
-        return LoginPage(admins: admins);
     }
   }
 
@@ -128,7 +138,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
             body: Center(child: Text('Error: ${snapshot.error}')),
           );
         }
-        // When future completes, return the determined page
         return snapshot.data ?? LoginPage(admins: admins);
       },
     );

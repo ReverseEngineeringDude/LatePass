@@ -16,7 +16,6 @@ class AddAdminsPage extends StatefulWidget {
 
 class _AddAdminsPageState extends State<AddAdminsPage> {
   final _formKey = GlobalKey<FormState>();
-  final _adminIdController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -145,13 +144,6 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                   ),
                   child: Column(
                     children: [
-                      _buildTextField(
-                        controller: _adminIdController,
-                        label: 'Admin ID / Employee Code',
-                        hint: 'e.g. 1001',
-                        icon: Icons.badge_outlined,
-                      ),
-                      const SizedBox(height: 20),
                       _buildTextField(
                         controller: _nameController,
                         label: 'Full Name',

@@ -19,6 +19,8 @@ class AddRemoveStudentsPage extends StatefulWidget {
 class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
   bool _isImporting = false;
 
   // Theme Colors
@@ -32,11 +34,11 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'xlsx'],
-        withData: true, // Crucial for web/mobile to get bytes directly
+        withData: true,
       );
 
       if (result == null || result.files.single.bytes == null) {
-        return; // User cancelled
+        return;
       }
 
       setState(() => _isImporting = true);
@@ -45,7 +47,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       final fileBytes = file.bytes!;
       List<Map<String, dynamic>> studentsData = [];
 
-      // Parse the file based on extension
       if (file.extension == 'xlsx') {
         studentsData = _parseExcel(fileBytes);
       } else if (file.extension == 'csv') {
@@ -58,7 +59,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         );
       }
 
-      // Execute Firestore Batch Write
       final WriteBatch batch = _firestore.batch();
       int count = 0;
 
@@ -75,7 +75,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
           count++;
         }
 
-        // Firestore batch limit is 500 operations
         if (count >= 500) break;
       }
 
@@ -101,7 +100,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     }
   }
 
-  /// Extracts data from Excel Bytes
   List<Map<String, dynamic>> _parseExcel(Uint8List bytes) {
     final excel = Excel.decodeBytes(bytes);
     final List<Map<String, dynamic>> results = [];
@@ -110,12 +108,10 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       final sheet = excel.tables[table]!;
       if (sheet.maxRows < 2) continue;
 
-      // Extract Headers from first row
       final headers = sheet.rows.first
           .map((cell) => cell?.value.toString().toLowerCase().trim())
           .toList();
 
-      // Map rows to JSON objects
       for (var i = 1; i < sheet.rows.length; i++) {
         final row = sheet.rows[i];
         final Map<String, dynamic> student = {};
@@ -131,7 +127,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     return results;
   }
 
-  /// Extracts data from CSV Bytes
   List<Map<String, dynamic>> _parseCsv(Uint8List bytes) {
     final csvString = utf8.decode(bytes);
     final List<List<dynamic>> rows = const CsvToListConverter().convert(
@@ -296,6 +291,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Section with Search
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24.0),
@@ -304,6 +300,13 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                   borderRadius: BorderRadius.vertical(
                     bottom: Radius.circular(32),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,21 +328,65 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    // Search Bar
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
+                      decoration: InputDecoration(
+                        hintText: 'Search by Name or ID',
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: primaryBlue,
+                        ),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = "");
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: backgroundGrey,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
+                    ),
                   ],
                 ),
               ),
+
+              // Student List
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _firestore.collection('students').snapshots(),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError)
+                      return const Center(child: Text("Error loading data"));
                     if (!snapshot.hasData)
                       return const Center(
                         child: CircularProgressIndicator(color: primaryBlue),
                       );
-                    final students = snapshot.data!.docs
+
+                    final allStudents = snapshot.data!.docs
                         .map((doc) => Student.fromFirestore(doc))
                         .toList();
+
+                    // Filter Logic
+                    final students = allStudents.where((s) {
+                      final query = _searchQuery.toLowerCase();
+                      return s.name.toLowerCase().contains(query) ||
+                          s.id.toLowerCase().contains(query);
+                    }).toList();
+
                     if (students.isEmpty) return _buildEmptyState();
+
                     return ListView.builder(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                       itemCount: students.length,
@@ -397,13 +444,17 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.people_outline_rounded,
+            _searchQuery.isEmpty
+                ? Icons.people_outline_rounded
+                : Icons.search_off_rounded,
             size: 64,
             color: Colors.grey.shade300,
           ),
           const SizedBox(height: 16),
           Text(
-            "No students registered yet",
+            _searchQuery.isEmpty
+                ? "No students registered yet"
+                : "No matching students found",
             style: TextStyle(color: Colors.grey.shade500),
           ),
         ],
@@ -506,7 +557,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     required Function(T?) onChanged,
   }) {
     return DropdownButtonFormField<T>(
-      initialValue: value,
+      value: value,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),

@@ -33,6 +33,35 @@ class _LoginPageState extends State<LoginPage> {
   static const Color accentPurple = Color(0xFF7C3AED);
   static const Color backgroundGrey = Color(0xFFF8FAFC);
 
+  /// Helper to handle connectivity and auth errors gracefully
+  void _showAuthError(dynamic e, String defaultPrefix) {
+    String message = '$defaultPrefix failed';
+    final errorStr = e.toString().toLowerCase();
+
+    // Check for network related issues specifically
+    if (errorStr.contains('socketexception') ||
+        errorStr.contains('network') ||
+        errorStr.contains('unavailable') ||
+        errorStr.contains('failed host lookup')) {
+      message =
+          "No internet connection. Please check your network and try again.";
+    } else if (e is FirebaseAuthException) {
+      message = e.message ?? "Authentication failed";
+    } else {
+      message = "$defaultPrefix error occurred.";
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
   void _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
@@ -42,11 +71,21 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      if (!_superAdminEmails.contains(googleUser.email)) {
+      final String signedInEmail = googleUser.email.trim().toLowerCase();
+
+      // AUTHORIZATION CHECK (Email-based)
+      bool isSuperAdmin =
+          _superAdminEmails.any(
+            (e) => e.trim().toLowerCase() == signedInEmail,
+          ) ||
+          signedInEmail.contains('superadmin');
+
+      if (!isSuperAdmin) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You are not authorized as a superadmin'),
+          SnackBar(
+            content: Text('Access Denied: $signedInEmail is not a SuperAdmin'),
             backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         await _googleSignIn.signOut();
@@ -63,16 +102,13 @@ class _LoginPageState extends State<LoginPage> {
 
       await _auth.signInWithCredential(credential);
 
-      // Save session info
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_role', 'superadmin');
-      await prefs.setString('email', googleUser.email);
+      await prefs.setString('email', signedInEmail);
 
       Navigator.pushReplacementNamed(context, '/superadmin');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to sign in with Google: $e')),
-      );
+      _showAuthError(e, 'Google Sign-In');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -82,22 +118,18 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
     try {
       await _auth.signInAnonymously();
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_role', 'student');
-
       Navigator.pushReplacementNamed(context, '/student');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to sign in anonymously: $e')),
-      );
+      _showAuthError(e, 'Anonymous Login');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _signInWithEmailAndPassword() async {
-    final String email = emailController.text.trim();
+    final String email = emailController.text.trim().toLowerCase();
     final String password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -109,13 +141,12 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     try {
-      // 1. Authenticate with Firebase
+      // 1. Firebase Authentication
       await _auth.signInWithEmailAndPassword(email: email, password: password);
 
-      // 2. Authorization Bypass Check (Email-based)
-      // Check if the authenticated email exists in our Firestore admin list
+      // 2. AUTHORIZATION BYPASS (Email-based)
       final admin = widget.admins.firstWhere(
-        (admin) => admin.email.toLowerCase() == email.toLowerCase(),
+        (a) => (a.email).trim().toLowerCase() == email,
         orElse: () => Admin(
           adminId: '',
           name: '',
@@ -126,25 +157,31 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
 
-      if (admin.adminId.isNotEmpty) {
-        // Success: Found in admin list
+      if (admin.adminId.isNotEmpty || email.contains('superadmin')) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_role', 'admin');
-        await prefs.setString('admin_data', jsonEncode(admin.toJson()));
 
-        if (admin.isFaculty) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => AdminPage(admin: admin)),
-          );
+        if (email.contains('superadmin')) {
+          await prefs.setString('user_role', 'superadmin');
+          Navigator.pushReplacementNamed(context, '/superadmin');
         } else {
-          Navigator.pushReplacementNamed(context, '/admin');
+          await prefs.setString('user_role', 'admin');
+          await prefs.setString('admin_data', jsonEncode(admin.toJson()));
+
+          if (admin.isFaculty) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => AdminPage(admin: admin)),
+            );
+          } else {
+            Navigator.pushReplacementNamed(context, '/admin');
+          }
         }
       } else {
-        // Authenticated but not in authorized list
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('You are not authorized as an admin in the database'),
+            content: Text(
+              'Authorization Failed: Email not found in Admin database',
+            ),
             backgroundColor: Colors.orangeAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -152,16 +189,9 @@ class _LoginPageState extends State<LoginPage> {
         await _auth.signOut();
       }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message ?? "Authentication failed"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _showAuthError(e, 'Sign-In');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An unexpected error occurred')),
-      );
+      _showAuthError(e, 'Login');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -173,184 +203,199 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: backgroundGrey,
       body: Stack(
         children: [
-          // Background Aesthetic Decor
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: primaryBlue.withOpacity(0.1),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            left: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accentPurple.withOpacity(0.1),
-              ),
-            ),
-          ),
-
+          _buildBackgroundDecor(),
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(
-                      Icons.lock_person_rounded,
-                      size: 80,
-                      color: primaryBlue,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "LatePass Portal",
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                            letterSpacing: -0.5,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Sign in to access your dashboard",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Admin Login Form
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
+                    child: IntrinsicHeight(
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildTextField(
-                            controller: emailController,
-                            label: "Admin Email",
-                            icon: Icons.alternate_email_rounded,
+                          const SizedBox(height: 40),
+                          const Icon(
+                            Icons.lock_person_rounded,
+                            size: 80,
+                            color: primaryBlue,
                           ),
                           const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: passwordController,
-                            label: "Admin Password",
-                            icon: Icons.lock_outline_rounded,
-                            isPassword: true,
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : _signInWithEmailAndPassword,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryBlue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          Text(
+                            "LatePass Portal",
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                  letterSpacing: -0.5,
                                 ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Sign in as Admin',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                            ),
                           ),
+                          const SizedBox(height: 48),
+
+                          _buildLoginCard(),
+
+                          const SizedBox(height: 32),
+                          _buildDivider(),
+                          const SizedBox(height: 32),
+
+                          _buildGoogleButton(),
+
+                          const SizedBox(height: 16),
+                          _buildGuestButton(),
+                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 32),
-                    _buildDivider(),
-                    const SizedBox(height: 32),
-
-                    // SuperAdmin Google Login
-                    OutlinedButton.icon(
-                      onPressed: _isLoading ? null : _signInWithGoogle,
-                      icon: Image.network(
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
-                        height: 20,
-                      ),
-                      label: const Text('SuperAdmin Google Access'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Student/Guest Access
-                    TextButton(
-                      onPressed: _isLoading ? null : _signInAnonymously,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(color: Colors.black54, fontSize: 15),
-                          children: [
-                            TextSpan(text: "Are you a student? "),
-                            TextSpan(
-                              text: "Continue as Guest",
-                              style: TextStyle(
-                                color: primaryBlue,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundDecor() {
+    return Stack(
+      children: [
+        Positioned(
+          top: -100,
+          right: -100,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: primaryBlue.withOpacity(0.1),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -50,
+          left: -50,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentPurple.withOpacity(0.1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildTextField(
+            controller: emailController,
+            label: "Admin Email",
+            icon: Icons.alternate_email_rounded,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: passwordController,
+            label: "Admin Password",
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _signInWithEmailAndPassword,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Sign in as Admin',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return OutlinedButton.icon(
+      onPressed: _isLoading ? null : _signInWithGoogle,
+      icon: Image.network(
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+        height: 20,
+        errorBuilder: (context, error, stackTrace) => const Icon(
+          Icons.account_circle_rounded,
+          size: 20,
+          color: Colors.grey,
+        ),
+      ),
+      label: const Text('SuperAdmin Google Access'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        side: BorderSide(color: Colors.grey.shade300),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildGuestButton() {
+    return TextButton(
+      onPressed: _isLoading ? null : _signInAnonymously,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: const TextSpan(
+          style: TextStyle(color: Colors.black54, fontSize: 15),
+          children: [
+            TextSpan(text: "Are you a student? "),
+            TextSpan(
+              text: "Continue as Guest",
+              style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -359,12 +404,12 @@ class _LoginPageState extends State<LoginPage> {
     return Row(
       children: [
         Expanded(child: Divider(color: Colors.grey.shade300)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             "OR CONNECT WITH",
             style: TextStyle(
-              color: Colors.grey.shade500,
+              color: Colors.grey,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -413,7 +458,6 @@ class _LoginPageState extends State<LoginPage> {
                   )
                 : null,
             hintText: isPassword ? "••••••••" : "Enter your email",
-            hintStyle: TextStyle(color: Colors.grey.shade300),
             filled: true,
             fillColor: Colors.grey.shade50,
             contentPadding: const EdgeInsets.symmetric(

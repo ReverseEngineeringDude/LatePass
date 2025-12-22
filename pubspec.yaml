@@ -46,6 +46,7 @@ dependencies:
   excel: ^4.0.6
   file_picker: ^10.3.8
   shared_preferences: ^2.5.4
+  firebase_messaging: ^15.0.0
 
 dev_dependencies:
   flutter_test:

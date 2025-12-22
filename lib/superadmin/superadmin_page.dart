@@ -12,7 +12,7 @@ import 'package:latepass/admin/student_model.dart';
 import 'package:latepass/admin/todays_attendance_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latepass/shared/app_drawer.dart';
-import 'package:latepass/superadmin/add_admins_page.dart';
+import 'package:latepass/superadmin/manage_admins_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 
 class SuperAdminPage extends StatefulWidget {
@@ -71,7 +71,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
       "color": Color(0xFF06B6D4),
     },
     {
-      "title": "Add Admins",
+      "title": "Manage Admins",
       "icon": Icons.admin_panel_settings_rounded,
       "color": Color(0xFF6366F1),
     },
@@ -139,15 +139,16 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   }
 
   void _navigateToPage(int index) {
+    // We create the pages inside the function to ensure they get fresh callbacks
     final List<Widget> pages = [
-      Container(), // Placeholder for Id Scan logic
+      Container(), // Id Scan
       ManualEnterPage(),
       ExportDataPage(),
       ReportStudentPage(),
       ShowReportsPage(isFaculty: false, department: "", isSuperAdmin: true),
       AddRemoveStudentsPage(),
       const TodaysAttendancePage(),
-      AddAdminsPage(onAddAdmin: widget.onAddAdmin),
+      ManageAdminsPage(onAddAdmin: widget.onAddAdmin),
     ];
 
     if (menuItems[index]["title"] == "Id Scan") {
@@ -189,12 +190,11 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
           const SizedBox(width: 8),
         ],
       ),
-      drawer: AppDrawer(),
+      drawer: const AppDrawer(),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24.0),
@@ -220,7 +220,6 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Quick Stats Row (Visual only)
                   Row(
                     children: [
                       _buildMiniStat(
@@ -248,7 +247,6 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               ),
             ),
 
-            // Grid Menu
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: GridView.builder(
