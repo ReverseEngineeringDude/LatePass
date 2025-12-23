@@ -1,6 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, deprecated_member_use
 
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,6 +10,7 @@ import 'package:latepass/superadmin/admin_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
+  // We keep this for backward compatibility, but we will query Firestore directly for fresh data
   final List<Admin> admins;
 
   const LoginPage({super.key, required this.admins});
@@ -25,20 +27,16 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // SuperAdmin emails authorized for both Google and Email/Password Login
   final List<String> _superAdminEmails = ['praveenmtdarker@gmail.com'];
 
-  // UI Colors
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentPurple = Color(0xFF7C3AED);
   static const Color backgroundGrey = Color(0xFFF8FAFC);
 
-  /// Helper to handle connectivity and auth errors gracefully
   void _showAuthError(dynamic e, String defaultPrefix) {
     String message = '$defaultPrefix failed';
     final errorStr = e.toString().toLowerCase();
 
-    // Catch network failures specifically
     if (errorStr.contains('socketexception') ||
         errorStr.contains('network') ||
         errorStr.contains('unavailable') ||
@@ -62,7 +60,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Helper to check if a normalized email belongs to a SuperAdmin
   bool _checkIsSuperAdmin(String email) {
     final normalizedEmail = email.trim().toLowerCase();
     return _superAdminEmails.any(
@@ -82,7 +79,6 @@ class _LoginPageState extends State<LoginPage> {
 
       final String signedInEmail = googleUser.email.trim().toLowerCase();
 
-      // AUTHORIZATION CHECK
       if (!_checkIsSuperAdmin(signedInEmail)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -144,72 +140,65 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     try {
-      // 1. PRE-AUTHORIZATION CHECK (Credentials matching)
       bool isSuperAdmin = _checkIsSuperAdmin(email);
+      Admin? currentAdmin;
 
-      // Search for an admin that matches BOTH email and password from the fetched list
-      final admin = widget.admins.firstWhere(
-        (a) => a.email.trim().toLowerCase() == email && a.password == password,
-        orElse: () => Admin(
-          adminId: '',
-          name: '',
-          department: '',
-          isFaculty: false,
-          email: '',
-          password: '',
-        ),
-      );
+      // 1. FRESH AUTHORIZATION CHECK (Query Firestore directly instead of using widget.admins)
+      if (!isSuperAdmin) {
+        final adminQuery = await FirebaseFirestore.instance
+            .collection('admins')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
 
-      // SuperAdmins bypass the internal list check for password, relying on Firebase Auth
-      if (isSuperAdmin || admin.adminId.isNotEmpty) {
-        // 2. Firebase Authentication (Secure verification)
-        await _auth.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-
-        final prefs = await SharedPreferences.getInstance();
-
-        if (isSuperAdmin) {
-          await prefs.setString('user_role', 'superadmin');
-          Navigator.pushReplacementNamed(context, '/superadmin');
-        } else {
-          await prefs.setString('user_role', 'admin');
-          await prefs.setString('admin_data', jsonEncode(admin.toJson()));
-
-          if (admin.isFaculty) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => AdminPage(admin: admin)),
-            );
-          } else {
-            Navigator.pushReplacementNamed(context, '/admin');
-          }
+        if (adminQuery.docs.isEmpty) {
+          throw 'Authorization Failed: This email is not registered as an admin.';
         }
-      } else {
-        // Handle specific failure cases for feedback
-        final emailExists = widget.admins.any(
-          (a) => a.email.trim().toLowerCase() == email,
-        );
-        String errorMessage = emailExists
-            ? 'Access Denied: Incorrect password for this admin account.'
-            : 'Authorization Failed: This email is not registered as an admin.';
 
+        final adminData = adminQuery.docs.first;
+        currentAdmin = Admin.fromFirestore(adminData);
+
+        // Verify password match in Firestore as requested
+        if (currentAdmin.password != password) {
+          throw 'Access Denied: Incorrect password for this admin account.';
+        }
+      }
+
+      // 2. Firebase Authentication (Secure sign-in)
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+
+      final prefs = await SharedPreferences.getInstance();
+
+      if (isSuperAdmin) {
+        await prefs.setString('user_role', 'superadmin');
+        Navigator.pushReplacementNamed(context, '/superadmin');
+      } else if (currentAdmin != null) {
+        await prefs.setString('user_role', 'admin');
+        await prefs.setString('admin_data', jsonEncode(currentAdmin.toJson()));
+
+        if (currentAdmin.isFaculty) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AdminPage(admin: currentAdmin!),
+            ),
+          );
+        } else {
+          Navigator.pushReplacementNamed(context, '/admin');
+        }
+      }
+    } catch (e) {
+      if (e is String) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
+            content: Text(e),
             backgroundColor: Colors.orangeAccent,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
           ),
         );
+      } else {
+        _showAuthError(e, 'Login');
       }
-    } on FirebaseAuthException catch (e) {
-      _showAuthError(e, 'Sign-In');
-    } catch (e) {
-      _showAuthError(e, 'Login');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
