@@ -3,7 +3,8 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart'
+    hide Border; // Hidden to avoid conflict with Flutter's Border class
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,13 +21,13 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
+
   String _searchQuery = "";
   bool _isImporting = false;
 
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-  static const Color errorRed = Color(0xFFEF4444);
+  // Selection State
+  final Set<String> _selectedIds = {};
+  List<Student> _currentFilteredStudents = [];
 
   /// Starts the bulk import process by letting the user pick a file.
   Future<void> _startBulkImport() async {
@@ -91,7 +92,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Import Failed: ${e.toString()}'),
-          backgroundColor: errorRed,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -238,8 +239,8 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryBlue,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -252,59 +253,135 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     );
   }
 
+  void _selectAll() {
+    setState(() {
+      for (var student in _currentFilteredStudents) {
+        _selectedIds.add(student.id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedStudents() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${_selectedIds.length} students?'),
+        content: const Text(
+          'This action is permanent and will remove all selected student profiles.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final batch = _firestore.batch();
+      for (var id in _selectedIds) {
+        batch.delete(_firestore.collection('students').doc(id));
+      }
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Removed ${_selectedIds.length} students')),
+      );
+
+      setState(() {
+        _selectedIds.clear();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    bool isSelectionMode = _selectedIds.isNotEmpty;
+
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Student Management',
+        backgroundColor: isSelectionMode ? theme.colorScheme.primary : theme.appBarTheme.backgroundColor,
+        iconTheme: isSelectionMode ? theme.primaryIconTheme : theme.iconTheme,
+        title: Text(
+          isSelectionMode
+              ? '${_selectedIds.length} Selected'
+              : 'Student Management',
           style: TextStyle(
-            color: Colors.black87,
+            color: isSelectionMode ? theme.colorScheme.onPrimary : theme.textTheme.titleLarge?.color,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
         actions: [
-          IconButton(
-            onPressed: _startBulkImport,
-            icon: const Icon(Icons.upload_file_rounded, color: primaryBlue),
-            tooltip: 'Bulk Import (Excel/CSV)',
-          ),
+          if (isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.select_all_rounded),
+              tooltip: 'Select All Visible',
+              onPressed: _selectAll,
+            ),
+          if (isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_rounded),
+              onPressed: _deleteSelectedStudents,
+            ),
+          if (isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => setState(() => _selectedIds.clear()),
+            ),
+          if (!isSelectionMode)
+            IconButton(
+              onPressed: _startBulkImport,
+              icon: Icon(Icons.upload_file_rounded, color: theme.colorScheme.primary),
+              tooltip: 'Bulk Import (Excel/CSV)',
+            ),
           const SizedBox(width: 8),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addStudent,
-        backgroundColor: primaryBlue,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text(
-          'Add Student',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
+      floatingActionButton: isSelectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addStudent,
+              backgroundColor: theme.colorScheme.primary,
+              icon: Icon(Icons.add_rounded, color: theme.colorScheme.onPrimary),
+              label: Text(
+                'Add Student',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
       body: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section with Search
+              // Search Header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24.0),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(32),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black12,
+                      color: Colors.black12.withOpacity(0.05),
                       blurRadius: 10,
-                      offset: Offset(0, 4),
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
@@ -313,32 +390,28 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                   children: [
                     Text(
                       "Database Registry",
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 14,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.textTheme.bodySmall?.color,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       "Manage Students",
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 24,
+                      style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // Search Bar
                     TextField(
                       controller: _searchController,
                       onChanged: (value) =>
                           setState(() => _searchQuery = value),
                       decoration: InputDecoration(
                         hintText: 'Search by Name or ID',
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
-                          color: primaryBlue,
+                          color: theme.colorScheme.primary,
                         ),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
@@ -350,7 +423,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                               )
                             : null,
                         filled: true,
-                        fillColor: backgroundGrey,
+                        fillColor: theme.scaffoldBackgroundColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
@@ -370,28 +443,31 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                     if (snapshot.hasError)
                       return const Center(child: Text("Error loading data"));
                     if (!snapshot.hasData)
-                      return const Center(
-                        child: CircularProgressIndicator(color: primaryBlue),
+                      return Center(
+                        child: CircularProgressIndicator(color: theme.colorScheme.primary),
                       );
 
                     final allStudents = snapshot.data!.docs
                         .map((doc) => Student.fromFirestore(doc))
                         .toList();
 
-                    // Filter Logic
-                    final students = allStudents.where((s) {
+                    _currentFilteredStudents = allStudents.where((s) {
                       final query = _searchQuery.toLowerCase();
                       return s.name.toLowerCase().contains(query) ||
                           s.id.toLowerCase().contains(query);
                     }).toList();
 
-                    if (students.isEmpty) return _buildEmptyState();
+                    if (_currentFilteredStudents.isEmpty)
+                      return _buildEmptyState();
 
                     return ListView.builder(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                      itemCount: students.length,
-                      itemBuilder: (context, index) =>
-                          _buildStudentCard(students[index]),
+                      itemCount: _currentFilteredStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = _currentFilteredStudents[index];
+                        final isSelected = _selectedIds.contains(student.id);
+                        return _buildStudentCard(student, isSelected);
+                      },
                     );
                   },
                 ),
@@ -405,6 +481,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   }
 
   Widget _buildImportOverlay() {
+    final theme = Theme.of(context);
     return Container(
       color: Colors.black54,
       child: Center(
@@ -417,18 +494,18 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
             padding: const EdgeInsets.all(32.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                CircularProgressIndicator(color: primaryBlue),
-                SizedBox(height: 24),
+              children: [
+                CircularProgressIndicator(color: theme.colorScheme.primary),
+                const SizedBox(height: 24),
                 Text(
                   "Bulk Importing...",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  "Processing your document and updating the student registry.",
+                  "Processing your document and updating the registry.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: theme.textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -439,6 +516,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -448,26 +526,32 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                 ? Icons.people_outline_rounded
                 : Icons.search_off_rounded,
             size: 64,
-            color: Colors.grey.shade300,
+            color: theme.dividerColor,
           ),
           const SizedBox(height: 16),
           Text(
             _searchQuery.isEmpty
                 ? "No students registered yet"
                 : "No matching students found",
-            style: TextStyle(color: Colors.grey.shade500),
+            style: theme.textTheme.bodyMedium,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStudentCard(Student student) {
-    return Container(
+  Widget _buildStudentCard(Student student, bool isSelected) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected ? theme.colorScheme.primary.withOpacity(0.05) : theme.cardColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+          width: 2,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -477,32 +561,58 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: primaryBlue.withOpacity(0.1),
-          child: const Icon(Icons.person, color: primaryBlue, size: 20),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onLongPress: () {
+          setState(() {
+            if (isSelected)
+              _selectedIds.remove(student.id);
+            else
+              _selectedIds.add(student.id);
+          });
+        },
+        onTap: () {
+          if (_selectedIds.isNotEmpty) {
+            setState(() {
+              if (isSelected)
+                _selectedIds.remove(student.id);
+              else
+                _selectedIds.add(student.id);
+            });
+          }
+        },
+        leading: isSelected
+            ? CircleAvatar(
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.check, color: theme.colorScheme.onPrimary, size: 20),
+              )
+            : CircleAvatar(
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                child: Icon(Icons.person, color: theme.colorScheme.primary, size: 20),
+              ),
         title: Text(
           student.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
           "${student.department} • Year ${student.year}",
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: theme.textTheme.bodySmall,
         ),
-        trailing: IconButton(
-          icon: const Icon(
-            Icons.delete_outline_rounded,
-            color: errorRed,
-            size: 22,
-          ),
-          onPressed: () => _confirmDelete(student),
-        ),
+        trailing: isSelected
+            ? null
+            : IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.colorScheme.error,
+                  size: 22,
+                ),
+                onPressed: () => _confirmDelete(student),
+              ),
       ),
     );
   }
 
   void _confirmDelete(Student student) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -519,7 +629,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
               _firestore.collection('students').doc(student.id).delete();
               Navigator.pop(context);
             },
-            child: const Text('Remove', style: TextStyle(color: errorRed)),
+            child: Text('Remove', style: TextStyle(color: theme.colorScheme.error)),
           ),
         ],
       ),

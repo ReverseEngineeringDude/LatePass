@@ -12,15 +12,12 @@ class TodaysAttendancePage extends StatefulWidget {
 }
 
 class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
-  // Theme Colors consistent with the portal design
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   void _deleteAttendanceRecord(String recordId) {
     FirebaseFirestore.instance.collection('attendance').doc(recordId).delete();
   }
 
   void _showDeleteConfirmationDialog(String recordId) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -35,7 +32,7 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
               },
             ),
             TextButton(
-              child: const Text('Delete'),
+              child: Text('Delete', style: TextStyle(color: theme.colorScheme.error)),
               onPressed: () {
                 _deleteAttendanceRecord(recordId);
                 Navigator.of(context).pop();
@@ -49,20 +46,18 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           "Today's Attendance",
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -74,14 +69,14 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Colors.black12.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -90,18 +85,15 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
               children: [
                 Text(
                   "Attendance Logs",
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   "Daily Registry",
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 24,
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -122,13 +114,13 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: primaryBlue.withOpacity(0.1),
+                        color: theme.colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         "$count Students Logged Today",
-                        style: const TextStyle(
-                          color: primaryBlue,
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -162,8 +154,8 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   );
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: primaryBlue),
+                  return Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
                   );
                 }
 
@@ -177,15 +169,12 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                         Icon(
                           Icons.history_toggle_off_rounded,
                           size: 64,
-                          color: Colors.grey.shade300,
+                          color: theme.dividerColor,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No attendance records for today.',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 16,
-                          ),
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -211,6 +200,7 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
   Widget _buildAttendanceRecordCard(
     QueryDocumentSnapshot attendance,
   ) {
+    final theme = Theme.of(context);
     final timestamp = attendance['timestamp'] as Timestamp?;
     final dateTime = timestamp?.toDate() ?? DateTime.now();
     final studentId = attendance['studentId'];
@@ -225,7 +215,7 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -273,11 +263,11 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: primaryBlue.withOpacity(0.1),
+                      backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                       child: Text(
                         studentName.isNotEmpty ? studentName[0].toUpperCase() : 'U',
-                        style: const TextStyle(
-                          color: primaryBlue,
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -292,15 +282,11 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: Colors.black87,
                             ),
                           ),
                           Text(
                             dept,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                            ),
+                            style: theme.textTheme.bodySmall,
                           ),
                           const SizedBox(height: 8),
                           Container(
@@ -309,15 +295,13 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: backgroundGrey,
+                              color: theme.scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               "Marked by: $adminName",
-                              style: const TextStyle(
-                                fontSize: 11,
+                              style: theme.textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black54,
                               ),
                             ),
                           ),
@@ -330,15 +314,14 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                         const Icon(
                           Icons.access_time_rounded,
                           size: 16,
-                          color: Colors.grey,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           formattedTime,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: primaryBlue,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ],

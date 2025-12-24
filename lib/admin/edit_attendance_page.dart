@@ -26,11 +26,29 @@ class _EditAttendancePageState extends State<EditAttendancePage> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final theme = Theme.of(context);
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDateTime,
       firstDate: DateTime(2020),
       lastDate: DateTime(2101),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: theme.colorScheme.primary, // Header background color
+              onPrimary: theme.colorScheme.onPrimary, // Header text color
+              onSurface: theme.colorScheme.onSurface, // Body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary, // Button text color
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       _selectTime(context, picked);
@@ -38,9 +56,27 @@ class _EditAttendancePageState extends State<EditAttendancePage> {
   }
 
   Future<void> _selectTime(BuildContext context, DateTime date) async {
+    final theme = Theme.of(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: theme.colorScheme.primary, // Header background color
+              onPrimary: theme.colorScheme.onPrimary, // Header text color
+              onSurface: theme.colorScheme.onSurface, // Body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary, // Button text color
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -70,7 +106,9 @@ class _EditAttendancePageState extends State<EditAttendancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Edit Attendance'),
       ),
@@ -79,40 +117,50 @@ class _EditAttendancePageState extends State<EditAttendancePage> {
         child: Column(
           children: <Widget>[
             TextFormField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Student ID',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                labelStyle: theme.textTheme.bodyMedium,
               ),
               initialValue: widget.attendance['studentId'],
               readOnly: true,
+              style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 16.0),
             TextFormField(
               controller: _dateController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Date',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.calendar_today),
+                border: const OutlineInputBorder(),
+                suffixIcon: Icon(Icons.calendar_today, color: theme.iconTheme.color),
+                labelStyle: theme.textTheme.bodyMedium,
               ),
               readOnly: true,
               onTap: () => _selectDate(context),
+              style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 16.0),
              TextFormField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Time',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.access_time),
+                border: const OutlineInputBorder(),
+                suffixIcon: Icon(Icons.access_time, color: theme.iconTheme.color),
+                labelStyle: theme.textTheme.bodyMedium,
               ),
               readOnly: true,
               onTap: () => _selectTime(context, _selectedDateTime),
               controller: TextEditingController(
                 text: TimeOfDay.fromDateTime(_selectedDateTime).format(context),
               ),
+              style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 32.0),
             ElevatedButton(
               onPressed: _updateAttendance,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+              ),
               child: const Text('Save Changes'),
             ),
           ],

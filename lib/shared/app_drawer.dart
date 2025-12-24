@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:latepass/shared/theme_notifier.dart';
+import 'package:provider/provider.dart';
+
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
-
   @override
   State<AppDrawer> createState() => _AppDrawerState();
 }
@@ -79,7 +81,7 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(32),
@@ -109,6 +111,23 @@ class _AppDrawerState extends State<AppDrawer> {
                   child: Divider(thickness: 1),
                 ),
 
+                Consumer<ThemeNotifier>(
+                  builder: (context, themeNotifier, child) {
+                    return _buildDrawerItem(
+                      icon: themeNotifier.themeMode == ThemeMode.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      label: 'Toggle Theme',
+                      onTap: () => themeNotifier.toggleTheme(),
+                    );
+                  },
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Divider(thickness: 1),
+                ),
+
                 _buildDrawerItem(
                   icon: Icons.logout_rounded,
                   label: 'Logout',
@@ -131,7 +150,6 @@ class _AppDrawerState extends State<AppDrawer> {
       ),
     );
   }
-
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -237,7 +255,7 @@ class _AppDrawerState extends State<AppDrawer> {
     Color? color,
     bool isActive = false,
   }) {
-    final itemColor = color ?? (isActive ? primaryBlue : Colors.black87);
+    final itemColor = color ?? (isActive ? primaryBlue : Theme.of(context).colorScheme.onSurface);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

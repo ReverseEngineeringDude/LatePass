@@ -24,47 +24,6 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
-  // Theme Colors
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
-  final List<Map<String, dynamic>> menuItems = [
-    {
-      "title": "Id Scan",
-      "icon": Icons.qr_code_scanner_rounded,
-      "color": Color(0xFF3B82F6),
-    },
-    {
-      "title": "Manual Enter",
-      "icon": Icons.keyboard_rounded,
-      "color": Color(0xFF10B981),
-    },
-    {
-      "title": "Export Data",
-      "icon": Icons.ios_share_rounded,
-      "color": Color(0xFFF59E0B),
-    },
-    {
-      "title": "Report Student",
-      "icon": Icons.report_problem_rounded,
-      "color": Color(0xFFEF4444),
-    },
-    {
-      "title": "Show Reports",
-      "icon": Icons.analytics_rounded,
-      "color": Color(0xFF8B5CF6),
-    },
-    {
-      "title": "Add / Remove Students",
-      "icon": Icons.people_alt_rounded,
-      "color": Color(0xFFEC4899),
-    },
-    {
-      "title": "Today's Attendance",
-      "icon": Icons.today_rounded,
-      "color": Color(0xFF06B6D4),
-    },
-  ];
-
   Future<bool> _handleScan(String value) async {
     try {
       final studentDoc = await FirebaseFirestore.instance
@@ -126,7 +85,7 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  void _navigateToPage(int index) {
+  void _navigateToPage(BuildContext context, int index, List<Map<String, dynamic>> menuItems) {
     final List<Widget> pages = [
       Container(), // Placeholder for Id Scan
       ManualEnterPage(),
@@ -158,16 +117,52 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final List<Map<String, dynamic>> menuItems = [
+      {
+        "title": "Id Scan",
+        "icon": Icons.qr_code_scanner_rounded,
+        "color": theme.colorScheme.primary,
+      },
+      {
+        "title": "Manual Enter",
+        "icon": Icons.keyboard_rounded,
+        "color": Colors.green,
+      },
+      {
+        "title": "Export Data",
+        "icon": Icons.ios_share_rounded,
+        "color": Colors.orange,
+      },
+      {
+        "title": "Report Student",
+        "icon": Icons.report_problem_rounded,
+        "color": Colors.red,
+      },
+      {
+        "title": "Show Reports",
+        "icon": Icons.analytics_rounded,
+        "color": Colors.purple,
+      },
+      {
+        "title": "Add / Remove Students",
+        "icon": Icons.people_alt_rounded,
+        "color": Colors.pink,
+      },
+      {
+        "title": "Today's Attendance",
+        "icon": Icons.today_rounded,
+        "color": Colors.cyan,
+      },
+    ];
+
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           "Admin Dashboard",
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -182,9 +177,9 @@ class _AdminPageState extends State<AdminPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24.0),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(32),
                 ),
               ),
@@ -193,25 +188,23 @@ class _AdminPageState extends State<AdminPage> {
                 children: [
                   Text(
                     "Department: ${widget.admin?.department ?? 'General'}",
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodySmall?.color,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "Hello, ${widget.admin?.name ?? 'Admin'}",
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontSize: 26,
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     "Select a tool below to manage student attendance and reporting.",
-                    style: TextStyle(color: Colors.black54, height: 1.4),
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(height: 1.4),
                   ),
                 ],
               ),
@@ -224,7 +217,6 @@ class _AdminPageState extends State<AdminPage> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
             ),
@@ -248,7 +240,7 @@ class _AdminPageState extends State<AdminPage> {
                     title: item["title"],
                     icon: item["icon"],
                     color: item["color"],
-                    onTap: () => _navigateToPage(index),
+                    onTap: () => _navigateToPage(context, index, menuItems),
                   );
                 },
               ),
@@ -266,12 +258,13 @@ class _AdminPageState extends State<AdminPage> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -300,10 +293,8 @@ class _AdminPageState extends State<AdminPage> {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.black87,
                 ),
               ),
             ),

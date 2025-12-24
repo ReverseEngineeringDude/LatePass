@@ -19,10 +19,6 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
   bool _isSearching = false;
   bool _isMarking = false;
 
-  // Theme Colors consistent with the portal design
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   Future<void> _findStudent() async {
     final id = _controller.text.trim();
     if (id.isEmpty) return;
@@ -112,22 +108,21 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
           const SnackBar(content: Text('Failed to mark attendance')),
         );
       } finally {
-        setState(() => _isMarking = false);
+        if (mounted) setState(() => _isMarking = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Manual Entry',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -135,26 +130,24 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
           // Search Header Section
           Container(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Colors.black12.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Manual ID Entry",
-                  style: TextStyle(
-                    fontSize: 22,
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -166,12 +159,12 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
                         onSubmitted: (_) => _findStudent(),
                         decoration: InputDecoration(
                           hintText: 'Enter Student ID',
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.badge_outlined,
-                            color: primaryBlue,
+                            color: theme.colorScheme.primary,
                           ),
                           filled: true,
-                          fillColor: backgroundGrey,
+                          fillColor: theme.scaffoldBackgroundColor,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 16,
                           ),
@@ -185,8 +178,8 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: primaryBlue,
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
                               width: 1.5,
                             ),
                           ),
@@ -198,23 +191,23 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
                       height: 54,
                       width: 54,
                       decoration: BoxDecoration(
-                        color: primaryBlue,
+                        color: theme.colorScheme.primary,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: IconButton(
                         onPressed: _isSearching ? null : _findStudent,
                         icon: _isSearching
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: theme.colorScheme.onPrimary,
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.search_rounded,
-                                color: Colors.white,
+                                color: theme.colorScheme.onPrimary,
                               ),
                       ),
                     ),
@@ -255,6 +248,7 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
   }
 
   Widget _buildStateHint(IconData icon, String text, {bool isError = false}) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -263,13 +257,13 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
           Icon(
             icon,
             size: 80,
-            color: isError ? Colors.red.withOpacity(0.2) : Colors.grey.shade300,
+            color: isError ? theme.colorScheme.error.withOpacity(0.2) : theme.dividerColor,
           ),
           const SizedBox(height: 16),
           Text(
             text,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+            style: theme.textTheme.bodyMedium,
           ),
         ],
       ),
@@ -277,10 +271,11 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
   }
 
   Widget _buildStudentResultCard() {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -296,7 +291,7 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: primaryBlue.withOpacity(0.05),
+              color: theme.colorScheme.primary.withOpacity(0.05),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
@@ -305,11 +300,11 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: primaryBlue,
+                  backgroundColor: theme.colorScheme.primary,
                   child: Text(
                     _student!.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -322,16 +317,13 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
                     children: [
                       Text(
                         _student!.name,
-                        style: const TextStyle(
-                          fontSize: 20,
+                        style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
                         ),
                       ),
                       Text(
                         "ID: ${_student!.id}",
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -367,15 +359,15 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
                   child: ElevatedButton(
                     onPressed: _isMarking ? null : _addStudentToAttendance,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      foregroundColor: Colors.white,
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: _isMarking
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? CircularProgressIndicator(color: theme.colorScheme.onPrimary)
                         : const Text(
                             'Mark as Present',
                             style: TextStyle(
@@ -394,22 +386,21 @@ class _ManualEnterPageState extends State<ManualEnterPage> {
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade400),
+        Icon(icon, size: 20, color: theme.iconTheme.color?.withOpacity(0.5)),
         const SizedBox(width: 12),
         Text(
           "$label:",
-          style: const TextStyle(
-            color: Colors.black54,
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
           ),
         ),
         const Spacer(),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.black87,
+          style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),

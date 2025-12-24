@@ -16,9 +16,6 @@ class _ScannerPageState extends State<ScannerPage> {
   bool _isProcessing = false;
   final MobileScannerController controller = MobileScannerController();
 
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-
   @override
   void dispose() {
     controller.dispose();
@@ -27,6 +24,7 @@ class _ScannerPageState extends State<ScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -135,10 +133,10 @@ class _ScannerPageState extends State<ScannerPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: primaryBlue,
+                      color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
@@ -146,14 +144,14 @@ class _ScannerPageState extends State<ScannerPage> {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                           ),
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           "Verifying ID...",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -184,6 +182,7 @@ class _ScannerPageState extends State<ScannerPage> {
   }
 
   Widget _buildScannerOverlay(BuildContext context) {
+    final theme = Theme.of(context);
     final size = MediaQuery.of(context).size.width * 0.7;
     return Stack(
       children: [
@@ -222,7 +221,7 @@ class _ScannerPageState extends State<ScannerPage> {
             width: size,
             height: size,
             child: CustomPaint(
-              painter: ScannerFramePainter(color: primaryBlue),
+              painter: ScannerFramePainter(color: theme.colorScheme.primary),
             ),
           ),
         ),

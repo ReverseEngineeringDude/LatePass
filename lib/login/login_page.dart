@@ -29,10 +29,6 @@ class _LoginPageState extends State<LoginPage> {
 
   final List<String> _superAdminEmails = ['praveenmtdarker@gmail.com'];
 
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color accentPurple = Color(0xFF7C3AED);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   void _showAuthError(dynamic e, String defaultPrefix) {
     String message = '$defaultPrefix failed';
     final errorStr = e.toString().toLowerCase();
@@ -206,8 +202,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
           _buildBackgroundDecor(),
@@ -226,19 +223,18 @@ class _LoginPageState extends State<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const SizedBox(height: 40),
-                          const Icon(
+                          Icon(
                             Icons.lock_person_rounded,
                             size: 80,
-                            color: primaryBlue,
+                            color: theme.colorScheme.primary,
                           ),
                           const SizedBox(height: 16),
                           Text(
                             "LatePass Portal",
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineMedium
+                            style: theme.textTheme.headlineMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
                                   letterSpacing: -0.5,
                                 ),
                           ),
@@ -265,6 +261,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildBackgroundDecor() {
+    final theme = Theme.of(context);
     return Stack(
       children: [
         Positioned(
@@ -275,7 +272,7 @@ class _LoginPageState extends State<LoginPage> {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: primaryBlue.withOpacity(0.1),
+              color: theme.colorScheme.primary.withOpacity(0.1),
             ),
           ),
         ),
@@ -287,7 +284,7 @@ class _LoginPageState extends State<LoginPage> {
             height: 200,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: accentPurple.withOpacity(0.1),
+              color: theme.colorScheme.secondary.withOpacity(0.1),
             ),
           ),
         ),
@@ -296,10 +293,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLoginCard() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -330,8 +328,8 @@ class _LoginPageState extends State<LoginPage> {
             child: ElevatedButton(
               onPressed: _isLoading ? null : _signInWithEmailAndPassword,
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryBlue,
-                foregroundColor: Colors.white,
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -361,6 +359,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildGoogleButton() {
+    final theme = Theme.of(context);
     return OutlinedButton.icon(
       onPressed: _isLoading ? null : _signInWithGoogle,
       icon: Image.network(
@@ -369,19 +368,19 @@ class _LoginPageState extends State<LoginPage> {
         errorBuilder: (context, error, stackTrace) => const Icon(
           Icons.account_circle_rounded,
           size: 20,
-          color: Colors.grey,
         ),
       ),
       label: const Text('SuperAdmin Google Access'),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: theme.dividerColor),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   Widget _buildGuestButton() {
+    final theme = Theme.of(context);
     return TextButton(
       onPressed: _isLoading ? null : _signInAnonymously,
       style: TextButton.styleFrom(
@@ -389,13 +388,13 @@ class _LoginPageState extends State<LoginPage> {
       ),
       child: RichText(
         textAlign: TextAlign.center,
-        text: const TextSpan(
-          style: TextStyle(color: Colors.black54, fontSize: 15),
+        text: TextSpan(
+          style: theme.textTheme.bodyMedium,
           children: [
-            TextSpan(text: "Are you a student? "),
+            const TextSpan(text: "Are you a student? "),
             TextSpan(
               text: "Continue as Guest",
-              style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
+              style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -404,22 +403,21 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildDivider() {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(child: Divider(color: Colors.grey.shade300)),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Expanded(child: Divider(color: theme.dividerColor)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             "OR CONNECT WITH",
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
+            style: theme.textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
         ),
-        Expanded(child: Divider(color: Colors.grey.shade300)),
+        Expanded(child: Divider(color: theme.dividerColor)),
       ],
     );
   }
@@ -430,15 +428,14 @@ class _LoginPageState extends State<LoginPage> {
     required IconData icon,
     bool isPassword = false,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 14,
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            color: Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -446,14 +443,14 @@ class _LoginPageState extends State<LoginPage> {
           controller: controller,
           obscureText: isPassword ? _obscureText : false,
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
+            prefixIcon: Icon(icon, color: theme.inputDecorationTheme.prefixIconColor, size: 20),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
                       _obscureText
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded,
-                      color: Colors.grey.shade400,
+                      color: theme.inputDecorationTheme.suffixIconColor,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -462,22 +459,22 @@ class _LoginPageState extends State<LoginPage> {
                 : null,
             hintText: isPassword ? "••••••••" : "Enter your email",
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: theme.inputDecorationTheme.fillColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+              borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
             ),
           ),
         ),

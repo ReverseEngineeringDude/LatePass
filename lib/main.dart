@@ -12,13 +12,21 @@ import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/superadmin/superadmin_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:latepass/shared/theme_notifier.dart';
+import 'package:provider/provider.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase with platform-specific options
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(ThemeMode.light),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -29,37 +37,59 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'LatePass Portal',
+    return Consumer<ThemeNotifier>(
+      builder: (context, themeNotifier, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'LatePass Portal',
 
-      // Modern Material 3 Theme Configuration
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primaryBlue,
-          primary: primaryBlue,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
-        ),
-      ),
+          // Modern Material 3 Theme Configuration
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryBlue,
+              primary: primaryBlue,
+              brightness: Brightness.light,
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black87,
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryBlue,
+              primary: primaryBlue,
+              brightness: Brightness.dark,
+            ),
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+              backgroundColor: Color(0xFF1E293B),
+              foregroundColor: Colors.white,
+            ),
+          ),
+          themeMode: themeNotifier.themeMode,
 
-      home: const AuthWrapper(),
-      routes: {
-        '/login': (context) => const LoginPage(admins: []),
-        '/admin': (context) => const AdminPage(),
-        '/student': (context) => const StudentPage(),
-        '/superadmin': (context) =>
-            SuperAdminPage(admins: const [], onAddAdmin: (_) {}),
+          home: const AuthWrapper(),
+          routes: {
+            '/login': (context) => const LoginPage(admins: []),
+            '/admin': (context) => const AdminPage(),
+            '/student': (context) => const StudentPage(),
+            '/superadmin': (context) =>
+                SuperAdminPage(admins: const [], onAddAdmin: (_) {}),
+          },
+        );
       },
     );
   }
 }
+
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});

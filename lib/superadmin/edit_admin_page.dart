@@ -83,7 +83,9 @@ class _EditAdminPageState extends State<EditAdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Edit Admin')),
       body: SingleChildScrollView(
         child: Padding(
@@ -97,7 +99,7 @@ class _EditAdminPageState extends State<EditAdminPage> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardColor,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Column(
@@ -140,8 +142,12 @@ class _EditAdminPageState extends State<EditAdminPage> {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submitForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
+                    ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? CircularProgressIndicator(color: theme.colorScheme.onPrimary)
                         : const Text(
                             'Update Admin',
                             style: TextStyle(
@@ -167,15 +173,14 @@ class _EditAdminPageState extends State<EditAdminPage> {
     required IconData icon,
     bool readOnly = false,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
+          style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -184,9 +189,9 @@ class _EditAdminPageState extends State<EditAdminPage> {
           readOnly: readOnly,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade400),
+            prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
             filled: true,
-            fillColor: readOnly ? Colors.grey.shade200 : Colors.grey.shade50,
+            fillColor: readOnly ? theme.disabledColor.withOpacity(0.2) : theme.inputDecorationTheme.fillColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -202,15 +207,14 @@ class _EditAdminPageState extends State<EditAdminPage> {
   }
 
   Widget _buildDropdownField() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Department",
-          style: TextStyle(
-            fontSize: 13,
+          style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -220,10 +224,10 @@ class _EditAdminPageState extends State<EditAdminPage> {
             prefixIcon: Icon(
               Icons.business_rounded,
               size: 20,
-              color: Colors.grey.shade400,
+              color: theme.inputDecorationTheme.prefixIconColor,
             ),
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: theme.inputDecorationTheme.fillColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

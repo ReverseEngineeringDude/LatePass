@@ -30,53 +30,6 @@ class SuperAdminPage extends StatefulWidget {
 }
 
 class _SuperAdminPageState extends State<SuperAdminPage> {
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
-  final List<Map<String, dynamic>> menuItems = [
-    {
-      "title": "Id Scan",
-      "icon": Icons.qr_code_scanner_rounded,
-      "color": Color(0xFF3B82F6),
-    },
-    {
-      "title": "Manual Enter",
-      "icon": Icons.keyboard_rounded,
-      "color": Color(0xFF10B981),
-    },
-    {
-      "title": "Export Data",
-      "icon": Icons.ios_share_rounded,
-      "color": Color(0xFFF59E0B),
-    },
-    {
-      "title": "Report Student",
-      "icon": Icons.report_problem_rounded,
-      "color": Color(0xFFEF4444),
-    },
-    {
-      "title": "Reports",
-      "icon": Icons.analytics_rounded,
-      "color": Color(0xFF8B5CF6),
-    },
-    {
-      "title": "Students Management",
-      "icon": Icons.people_alt_rounded,
-      "color": Color(0xFFEC4899),
-    },
-    {
-      "title": "Today's Attendance",
-      "icon": Icons.today_rounded,
-      "color": Color(0xFF06B6D4),
-    },
-    {
-      "title": "Manage Admins",
-      "icon": Icons.admin_panel_settings_rounded,
-      "color": Color(0xFF6366F1),
-    },
-  ];
-
   Future<bool> _handleScan(String value) async {
     try {
       final studentDoc = await FirebaseFirestore.instance
@@ -138,7 +91,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
     }
   }
 
-  void _navigateToPage(int index) {
+  void _navigateToPage(BuildContext context, int index, List<Map<String, dynamic>> menuItems) {
     // We create the pages inside the function to ensure they get fresh callbacks
     final List<Widget> pages = [
       Container(), // Id Scan
@@ -168,16 +121,57 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final List<Map<String, dynamic>> menuItems = [
+      {
+        "title": "Id Scan",
+        "icon": Icons.qr_code_scanner_rounded,
+        "color": theme.colorScheme.primary,
+      },
+      {
+        "title": "Manual Enter",
+        "icon": Icons.keyboard_rounded,
+        "color": Colors.green,
+      },
+      {
+        "title": "Export Data",
+        "icon": Icons.ios_share_rounded,
+        "color": Colors.orange,
+      },
+      {
+        "title": "Report Student",
+        "icon": Icons.report_problem_rounded,
+        "color": Colors.red,
+      },
+      {
+        "title": "Reports",
+        "icon": Icons.analytics_rounded,
+        "color": Colors.purple,
+      },
+      {
+        "title": "Students Management",
+        "icon": Icons.people_alt_rounded,
+        "color": Colors.pink,
+      },
+      {
+        "title": "Today's Attendance",
+        "icon": Icons.today_rounded,
+        "color": Colors.cyan,
+      },
+      {
+        "title": "Manage Admins",
+        "icon": Icons.admin_panel_settings_rounded,
+        "color": theme.colorScheme.secondary,
+      },
+    ];
+
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           "SuperAdmin Dashboard",
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -198,9 +192,9 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24.0),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(32),
                 ),
               ),
@@ -209,13 +203,11 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                 children: [
                   Text(
                     "Welcome back,",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                    style: theme.textTheme.bodyMedium,
                   ),
-                  const Text(
+                  Text(
                     "System Controller",
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 24,
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -225,7 +217,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                       _buildMiniStat(
                         "Active Admins",
                         "${widget.admins.length}",
-                        primaryBlue,
+                        theme.colorScheme.primary,
                       ),
                       const SizedBox(width: 12),
                       _buildMiniStat("Status", "Operational", Colors.green),
@@ -235,14 +227,12 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               ),
             ),
 
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 32, 24, 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
               child: Text(
                 "Management Tools",
-                style: TextStyle(
-                  fontSize: 18,
+                style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
             ),
@@ -265,7 +255,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                     title: item["title"],
                     icon: item["icon"],
                     color: item["color"],
-                    onTap: () => _navigateToPage(index),
+                    onTap: () => _navigateToPage(context, index, menuItems),
                   );
                 },
               ),
@@ -319,12 +309,13 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -351,10 +342,8 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.black87,
                 ),
               ),
             ),

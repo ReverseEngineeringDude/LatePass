@@ -16,14 +16,10 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _searchQuery = "";
 
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-  static const Color errorRed = Color(0xFFEF4444);
-
   void _reportStudent(Student student) {
     final TextEditingController reasonController = TextEditingController();
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -34,7 +30,7 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
           ),
           title: Row(
             children: [
-              const Icon(Icons.report_gmailerrorred_rounded, color: errorRed),
+              Icon(Icons.report_gmailerrorred_rounded, color: theme.colorScheme.error),
               const SizedBox(width: 12),
               const Text(
                 'Report Student',
@@ -50,10 +46,8 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
               children: [
                 Text(
                   "Reporting: ${student.name}",
-                  style: const TextStyle(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.black54,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -68,7 +62,7 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: theme.inputDecorationTheme.fillColor,
                   ),
                   validator: (value) => (value == null || value.isEmpty)
                       ? 'Please provide a reason'
@@ -80,7 +74,7 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -97,15 +91,15 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${student.name} has been reported'),
-                      backgroundColor: errorRed,
+                      backgroundColor: theme.colorScheme.error,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: errorRed,
-                foregroundColor: Colors.white,
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -120,16 +114,14 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Report Incident',
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -140,26 +132,24 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
           // Header & Search Bar
           Container(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Colors.black12.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Student Directory",
-                  style: TextStyle(
-                    fontSize: 22,
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -168,12 +158,12 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                   onChanged: (value) => setState(() => _searchQuery = value),
                   decoration: InputDecoration(
                     hintText: 'Search by name or ID',
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.search_rounded,
-                      color: primaryBlue,
+                      color: theme.colorScheme.primary,
                     ),
                     filled: true,
-                    fillColor: backgroundGrey,
+                    fillColor: theme.scaffoldBackgroundColor,
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -185,8 +175,8 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: primaryBlue,
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary,
                         width: 1.5,
                       ),
                     ),
@@ -205,8 +195,8 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                   return const Center(child: Text('Error fetching students'));
                 }
                 if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: primaryBlue),
+                  return Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
                   );
                 }
 
@@ -231,12 +221,12 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                         Icon(
                           Icons.search_off_rounded,
                           size: 64,
-                          color: Colors.grey.shade300,
+                          color: theme.dividerColor,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           "No students found matching your search",
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -260,10 +250,11 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
   }
 
   Widget _buildStudentCard(Student student) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -276,8 +267,8 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: Colors.grey.shade100,
-          child: const Icon(Icons.person_outline_rounded, color: primaryBlue),
+          backgroundColor: theme.scaffoldBackgroundColor,
+          child: Icon(Icons.person_outline_rounded, color: theme.colorScheme.primary),
         ),
         title: Text(
           student.name,
@@ -289,23 +280,23 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
             const SizedBox(height: 4),
             Text(
               "${student.department} • Year ${student.year}",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: theme.textTheme.bodySmall,
             ),
             Text(
               "ID: ${student.id}",
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6)),
             ),
           ],
         ),
         trailing: Container(
           decoration: BoxDecoration(
-            color: errorRed.withOpacity(0.1),
+            color: theme.colorScheme.error.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.report_problem_rounded,
-              color: errorRed,
+              color: theme.colorScheme.error,
               size: 22,
             ),
             onPressed: () => _reportStudent(student),

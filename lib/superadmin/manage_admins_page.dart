@@ -28,10 +28,6 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-  static const Color errorRed = Color(0xFFEF4444);
-
   final List<String> _departments = [
     'Computer Engineering',
     'Electronics',
@@ -84,8 +80,8 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Authentication error'),
-            backgroundColor: errorRed,
+            content: Text(e.message ?? 'An authentication error occurred.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -130,9 +126,9 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Update failed'),
-          backgroundColor: errorRed,
+        SnackBar(
+          content: Text('Update failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -140,6 +136,7 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
 
   /// Deletes an admin's authorization document from Firestore
   Future<void> _deleteAdmin(Admin admin) async {
+    final theme = Theme.of(context);
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -155,8 +152,8 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: errorRed),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.error),
+            child: Text('Delete', style: TextStyle(color: theme.colorScheme.onError)),
           ),
         ],
       ),
@@ -173,9 +170,9 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Deletion failed'),
-            backgroundColor: errorRed,
+          SnackBar(
+            content: Text('Deletion failed: $e'),
+            backgroundColor: theme.colorScheme.error,
           ),
         );
       }
@@ -186,6 +183,7 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     final nameEdit = TextEditingController(text: admin.name);
     String? deptEdit = admin.department;
     bool facultyEdit = admin.isFaculty;
+    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -212,12 +210,13 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
                 onChanged: (val) => setDialogState(() => deptEdit = val),
               ),
               SwitchListTile(
-                title: const Text(
+                title: Text(
                   'Faculty Privileges',
-                  style: TextStyle(fontSize: 14),
+                  style: theme.textTheme.bodyMedium,
                 ),
                 value: facultyEdit,
                 onChanged: (val) => setDialogState(() => facultyEdit = val),
+                activeColor: theme.colorScheme.primary,
               ),
             ],
           ),
@@ -236,6 +235,10 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
                 );
                 Navigator.pop(context);
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+              ),
               child: const Text('Save Changes'),
             ),
           ],
@@ -246,15 +249,14 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Admin Management',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: CustomScrollView(
@@ -266,16 +268,16 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "Register New Administrator",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   _buildRegistrationCard(),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     "Active Administrators",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -293,8 +295,8 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
                 );
               }
               if (!snapshot.hasData) {
-                return const SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator()),
+                return SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
                 );
               }
 
@@ -317,10 +319,11 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
   }
 
   Widget _buildRegistrationCard() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -364,13 +367,13 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
               onChanged: (val) => setState(() => _selectedDepartment = val),
             ),
             SwitchListTile(
-              title: const Text(
+              title: Text(
                 'Faculty Member',
-                style: TextStyle(fontSize: 14),
+                style: theme.textTheme.bodyMedium,
               ),
               value: _isFaculty,
               onChanged: (val) => setState(() => _isFaculty = val),
-              activeColor: primaryBlue,
+              activeColor: theme.colorScheme.primary,
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -379,20 +382,20 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _createAdmin,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  foregroundColor: Colors.white,
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: theme.colorScheme.onPrimary,
                         ),
                       )
                     : const Text(
@@ -408,10 +411,11 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
   }
 
   Widget _buildAdminTile(Admin admin) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -424,10 +428,10 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: primaryBlue.withOpacity(0.1),
-          child: const Icon(
+          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+          child: Icon(
             Icons.admin_panel_settings_rounded,
-            color: primaryBlue,
+            color: theme.colorScheme.primary,
             size: 20,
           ),
         ),
@@ -442,17 +446,17 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.edit_outlined,
-                color: primaryBlue,
+                color: theme.colorScheme.primary,
                 size: 20,
               ),
               onPressed: () => _showEditDialog(admin),
             ),
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.delete_outline_rounded,
-                color: errorRed,
+                color: theme.colorScheme.error,
                 size: 20,
               ),
               onPressed: () => _deleteAdmin(admin),
@@ -470,13 +474,14 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     required IconData icon,
     bool isPassword = false,
   }) {
+    final theme = Theme.of(context);
     return TextFormField(
       controller: controller,
       obscureText: isPassword ? _obscureText : false,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade400),
+        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
@@ -484,15 +489,16 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
                       ? Icons.visibility_off_rounded
                       : Icons.visibility_rounded,
                   size: 20,
+                  color: theme.inputDecorationTheme.suffixIconColor,
                 ),
                 onPressed: () => setState(() => _obscureText = !_obscureText),
               )
             : null,
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: theme.inputDecorationTheme.fillColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: theme.dividerColor),
         ),
       ),
       validator: (value) =>
@@ -505,11 +511,12 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     required String label,
     required IconData icon,
   }) {
+    final theme = Theme.of(context);
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 20),
+        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -522,11 +529,12 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     required IconData icon,
     required Function(T?) onChanged,
   }) {
+    final theme = Theme.of(context);
     return DropdownButtonFormField<T>(
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 20),
+        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       items: items

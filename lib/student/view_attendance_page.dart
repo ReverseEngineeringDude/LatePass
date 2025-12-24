@@ -14,10 +14,6 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
   final TextEditingController _studentIdController = TextEditingController();
   String? _studentId;
 
-  // Theme Colors consistent with the rest of the app
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   void _viewAttendance() {
     if (_studentIdController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -34,15 +30,14 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Attendance Records',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -50,26 +45,24 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
           // Search/Input Header
           Container(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Colors.black12.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Check Your History",
-                  style: TextStyle(
-                    fontSize: 22,
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -80,12 +73,12 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                         controller: _studentIdController,
                         decoration: InputDecoration(
                           hintText: 'Enter Admission Number',
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.numbers_rounded,
-                            color: primaryBlue,
+                            color: theme.colorScheme.primary,
                           ),
                           filled: true,
-                          fillColor: backgroundGrey,
+                          fillColor: theme.scaffoldBackgroundColor,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 16,
                           ),
@@ -99,8 +92,8 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: primaryBlue,
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
                               width: 1.5,
                             ),
                           ),
@@ -112,14 +105,14 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                       height: 54,
                       width: 54,
                       decoration: BoxDecoration(
-                        color: primaryBlue,
+                        color: theme.colorScheme.primary,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: IconButton(
                         onPressed: _viewAttendance,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.search_rounded,
-                          color: Colors.white,
+                          color: theme.colorScheme.onPrimary,
                         ),
                       ),
                     ),
@@ -146,8 +139,8 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                         );
                       }
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: primaryBlue),
+                        return Center(
+                          child: CircularProgressIndicator(color: theme.colorScheme.primary),
                         );
                       }
                       final attendanceDocs = snapshot.data!.docs;
@@ -176,6 +169,7 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
   }
 
   Widget _buildInitialState() {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -183,12 +177,12 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
           Icon(
             Icons.person_search_rounded,
             size: 80,
-            color: Colors.grey.shade300,
+            color: theme.dividerColor,
           ),
           const SizedBox(height: 16),
           Text(
             "Enter your ID to see your records",
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+            style: theme.textTheme.bodyMedium,
           ),
         ],
       ),
@@ -196,6 +190,7 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -203,21 +198,19 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
           Icon(
             Icons.history_toggle_off_rounded,
             size: 80,
-            color: Colors.grey.shade300,
+            color: theme.dividerColor,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             "No attendance records found.",
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 16,
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             "Make sure your ID is correct.",
-            style: TextStyle(color: Colors.grey.shade500),
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
@@ -225,19 +218,21 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
   }
 
   Widget _buildErrorState(String message) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.redAccent),
+          style: TextStyle(color: theme.colorScheme.error),
         ),
       ),
     );
   }
 
   Widget _buildAttendanceCard(DocumentSnapshot doc, DateTime dateTime) {
+    final theme = Theme.of(context);
     // Manual formatting to remove dependency on 'intl' package
     const months = [
       'Jan',
@@ -271,7 +266,7 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -302,18 +297,16 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Late Entry Marked',
-                    style: TextStyle(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "$formattedDate • $formattedTime",
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
                   FutureBuilder<DocumentSnapshot>(
@@ -333,15 +326,13 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: backgroundGrey,
+                          color: theme.scaffoldBackgroundColor,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           "Marked by: $adminName",
-                          style: const TextStyle(
-                            fontSize: 11,
+                          style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: Colors.black54,
                           ),
                         ),
                       );

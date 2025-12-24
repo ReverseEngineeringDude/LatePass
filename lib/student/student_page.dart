@@ -7,23 +7,16 @@ import 'package:latepass/student/view_attendance_page.dart';
 class StudentPage extends StatelessWidget {
   const StudentPage({super.key});
 
-  // Theme Colors consistent with the rest of the app
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color accentPurple = Color(0xFF7C3AED);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           "Student Portal",
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -45,9 +38,9 @@ class StudentPage extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24.0),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(32),
                 ),
               ),
@@ -56,33 +49,31 @@ class StudentPage extends StatelessWidget {
                 children: [
                   Text(
                     "Welcome back,",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodySmall?.color,
+                    ),
                   ),
-                  const Text(
+                  Text(
                     "Student Dashboard",
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 26,
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     "Manage your attendance and track your late passes in one place.",
-                    style: TextStyle(color: Colors.black54, height: 1.4),
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                   ),
                 ],
               ),
             ),
 
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 32, 24, 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
               child: Text(
                 "Your Tools",
-                style: TextStyle(
-                  fontSize: 18,
+                style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
             ),
@@ -95,7 +86,7 @@ class StudentPage extends StatelessWidget {
                 title: "Check Attendance",
                 subtitle: "View your historical attendance records and status.",
                 icon: Icons.calendar_month_rounded,
-                color: primaryBlue,
+                color: theme.colorScheme.primary,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -114,7 +105,10 @@ class StudentPage extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [accentPurple.withOpacity(0.8), accentPurple],
+                    colors: [
+                      theme.colorScheme.secondary.withOpacity(0.8),
+                      theme.colorScheme.secondary
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -168,13 +162,14 @@ class StudentPage extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -201,27 +196,24 @@ class StudentPage extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black45,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodySmall?.color,
                       height: 1.3,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.black26,
+              color: theme.iconTheme.color?.withOpacity(0.5),
               size: 16,
             ),
           ],

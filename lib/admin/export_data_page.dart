@@ -18,10 +18,6 @@ class ExportDataPage extends StatefulWidget {
 class _ExportDataPageState extends State<ExportDataPage> {
   bool _isExporting = false;
 
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   /// Hardcoded headers to ensure the export structure is always consistent
   final List<String> _exportHeaders = [
     'Timestamp',
@@ -172,15 +168,14 @@ class _ExportDataPageState extends State<ExportDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Export Center',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -188,49 +183,46 @@ class _ExportDataPageState extends State<ExportDataPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Colors.black12.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Data Management",
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   "Export Attendance",
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 24,
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "Share your attendance records in PDF, Excel, or CSV formats.",
-                  style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 ),
               ],
             ),
           ),
           Expanded(
             child: _isExporting
-                ? const Center(
-                    child: CircularProgressIndicator(color: primaryBlue),
+                ? Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
                   )
                 : ListView(
                     padding: const EdgeInsets.all(24),
@@ -274,13 +266,14 @@ class _ExportDataPageState extends State<ExportDataPage> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -307,23 +300,21 @@ class _ExportDataPageState extends State<ExportDataPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.black45, fontSize: 13),
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
             Icon(
               Icons.download_for_offline_rounded,
-              color: Colors.grey.shade300,
+              color: theme.dividerColor,
             ),
           ],
         ),

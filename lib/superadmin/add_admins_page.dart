@@ -27,10 +27,6 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // UI Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-
   final List<String> _departments = [
     'Computer Engineering',
     'Electronics',
@@ -93,15 +89,15 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Register New Admin',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
@@ -113,18 +109,16 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Header Info
-                const Text(
+                Text(
                   "Credentials & Details",
-                  style: TextStyle(
-                    fontSize: 20,
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   "Fill in the details below to create a new administrative account.",
-                  style: TextStyle(color: Colors.black54),
+                  style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),
 
@@ -132,7 +126,7 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardColor,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
@@ -172,15 +166,14 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                       // Faculty Switch
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
+                          color: theme.scaffoldBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border: Border.all(color: theme.dividerColor),
                         ),
                         child: SwitchListTile(
-                          title: const Text(
+                          title: Text(
                             'Assign Faculty Status',
-                            style: TextStyle(
-                              fontSize: 14,
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -188,7 +181,7 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                             'Grants classroom-specific access',
                           ),
                           value: _isFaculty,
-                          activeColor: primaryBlue,
+                          activeColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
                             setState(() => _isFaculty = value);
                           },
@@ -206,19 +199,19 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submitForm,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      foregroundColor: Colors.white,
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: theme.colorScheme.onPrimary,
                               strokeWidth: 2,
                             ),
                           )
@@ -247,15 +240,14 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
     required IconData icon,
     bool isPassword = false,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
+          style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -264,7 +256,7 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
           obscureText: isPassword ? _obscureText : false,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade400),
+            prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
@@ -272,29 +264,29 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded,
                       size: 20,
-                      color: Colors.grey.shade400,
+                      color: theme.inputDecorationTheme.suffixIconColor,
                     ),
                     onPressed: () =>
                         setState(() => _obscureText = !_obscureText),
                   )
                 : null,
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: theme.inputDecorationTheme.fillColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+              borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
             ),
           ),
           validator: (value) {
@@ -307,15 +299,14 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
   }
 
   Widget _buildDropdownField() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Department",
-          style: TextStyle(
-            fontSize: 13,
+          style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -325,21 +316,21 @@ class _AddAdminsPageState extends State<AddAdminsPage> {
             prefixIcon: Icon(
               Icons.business_rounded,
               size: 20,
-              color: Colors.grey.shade400,
+              color: theme.inputDecorationTheme.prefixIconColor,
             ),
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: theme.inputDecorationTheme.fillColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
           ),
           items: _departments.map((String department) {

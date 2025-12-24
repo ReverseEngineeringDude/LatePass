@@ -20,22 +20,16 @@ class ShowReportsPage extends StatefulWidget {
 }
 
 class _ShowReportsPageState extends State<ShowReportsPage> {
-  // Theme Colors
-  static const Color primaryBlue = Color(0xFF2563EB);
-  static const Color backgroundGrey = Color(0xFFF8FAFC);
-  static const Color errorRed = Color(0xFFEF4444);
-  static const Color successGreen = Color(0xFF10B981);
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     // Permission Guard UI
     if (!widget.isSuperAdmin && !widget.isFaculty) {
       return Scaffold(
-        backgroundColor: backgroundGrey,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           elevation: 0,
-          backgroundColor: Colors.white,
-          iconTheme: const IconThemeData(color: Colors.black87),
         ),
         body: Center(
           child: Column(
@@ -47,18 +41,16 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                 color: Colors.grey,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Access Denied',
-                style: TextStyle(
-                  fontSize: 22,
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'You do not have permission to view reports.',
-                style: TextStyle(color: Colors.grey.shade600),
+                style: theme.textTheme.bodyMedium,
               ),
             ],
           ),
@@ -72,15 +64,12 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
     }
 
     return Scaffold(
-      backgroundColor: backgroundGrey,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           'Incident Reports',
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -101,9 +90,9 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,18 +101,15 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                   widget.isSuperAdmin
                       ? "System-wide Reports"
                       : "Departmental Logs",
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.isFaculty ? widget.department : "All Departments",
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 24,
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -140,8 +126,8 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                   return const Center(child: Text('Error loading reports'));
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: primaryBlue),
+                  return Center(
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
                   );
                 }
 
@@ -155,15 +141,12 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                         Icon(
                           Icons.assignment_turned_in_rounded,
                           size: 64,
-                          color: Colors.grey.shade200,
+                          color: theme.dividerColor,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No active reports found.',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 16,
-                          ),
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -187,10 +170,11 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
   }
 
   Widget _buildReportCard(DocumentSnapshot report) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -209,10 +193,10 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: errorRed.withOpacity(0.1),
-                  child: const Icon(
+                  backgroundColor: theme.colorScheme.error.withOpacity(0.1),
+                  child: Icon(
                     Icons.person_off_rounded,
-                    color: errorRed,
+                    color: theme.colorScheme.error,
                     size: 20,
                   ),
                 ),
@@ -230,10 +214,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                       ),
                       Text(
                         "ID: ${report['studentId']} • Year ${report['studentYear']}",
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                   ),
@@ -250,23 +231,17 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "REASON FOR REPORT",
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black38,
                     letterSpacing: 1.1,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   report['reason'],
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.4,
-                    color: Colors.black87,
-                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(height: 1.4),
                 ),
                 const SizedBox(height: 12),
                 if (!widget.isFaculty || widget.isSuperAdmin)
@@ -276,15 +251,14 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: backgroundGrey,
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       report['studentDepartment'],
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: primaryBlue,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                   ),
@@ -296,7 +270,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: theme.scaffoldBackgroundColor,
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(24),
               ),
@@ -316,7 +290,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                           'Report for ${report['studentName']} resolved',
                         ),
                         behavior: SnackBarBehavior.floating,
-                        backgroundColor: successGreen,
+                        backgroundColor: Colors.green,
                       ),
                     );
                   },
@@ -326,7 +300,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                   ),
                   label: const Text("Mark as Resolved"),
                   style: TextButton.styleFrom(
-                    foregroundColor: successGreen,
+                    foregroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                 ),
