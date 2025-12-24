@@ -1,20 +1,24 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, curly_braces_in_flow_control_structures, deprecated_member_use
-
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
-import 'package:excel/excel.dart'
-    hide Border; // Hidden to avoid conflict with Flutter's Border class
+import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/student_model.dart';
 
 class AddRemoveStudentsPage extends StatefulWidget {
-  const AddRemoveStudentsPage({super.key});
+  final bool isSuperAdmin;
+  final String? initialDepartment;
+
+  const AddRemoveStudentsPage({
+    super.key,
+    this.isSuperAdmin = false,
+    this.initialDepartment,
+  });
 
   @override
-  _AddRemoveStudentsPageState createState() => _AddRemoveStudentsPageState();
+  State<AddRemoveStudentsPage> createState() => _AddRemoveStudentsPageState();
 }
 
 class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
@@ -23,13 +27,43 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = "";
+  String _selectedDeptFilter = 'All Departments';
   bool _isImporting = false;
+
+  // Finalized department list - NO "General" allowed
+  final List<String> _departments = [
+    'All Departments',
+    'Computer Engineering',
+    'Electronics',
+    'Mechanical',
+    'Civil',
+    'Electrical',
+  ];
 
   // Selection State
   final Set<String> _selectedIds = {};
   List<Student> _currentFilteredStudents = [];
 
-  /// Starts the bulk import process by letting the user pick a file.
+  @override
+  void initState() {
+    super.initState();
+    // Enforce department locking for non-superadmins.
+    if (!widget.isSuperAdmin) {
+      // Logic: Lock the view and actions to the Admin's specific department
+      if (widget.initialDepartment != null &&
+          _departments.contains(widget.initialDepartment) &&
+          widget.initialDepartment != 'All Departments') {
+        _selectedDeptFilter = widget.initialDepartment!;
+      } else {
+        // Fallback only if metadata is missing
+        _selectedDeptFilter = _departments[1];
+      }
+    } else if (widget.initialDepartment != null &&
+        widget.initialDepartment!.isNotEmpty) {
+      _selectedDeptFilter = widget.initialDepartment!;
+    }
+  }
+
   Future<void> _startBulkImport() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -38,9 +72,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         withData: true,
       );
 
-      if (result == null || result.files.single.bytes == null) {
-        return;
-      }
+      if (result == null || result.files.single.bytes == null) return;
 
       setState(() => _isImporting = true);
 
@@ -67,28 +99,45 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         final String? docId = student['id']?.toString().trim();
         if (docId != null && docId.isNotEmpty) {
           final docRef = _firestore.collection('students').doc(docId);
+
+          // Force strict departmental validity
+          String studentDept;
+          if (widget.isSuperAdmin) {
+            final String rawImportDept =
+                student['department']?.toString().trim() ?? "";
+            studentDept = _departments.contains(rawImportDept)
+                ? rawImportDept
+                : _departments[1];
+          } else {
+            // Regular Admins can ONLY import into their own department
+            studentDept = widget.initialDepartment ?? _departments[1];
+          }
+
           batch.set(docRef, {
             'id': docId,
             'name': student['name']?.toString() ?? 'Unknown',
-            'department': student['department']?.toString() ?? 'General',
+            'department': studentDept,
             'year': int.tryParse(student['year']?.toString() ?? '1') ?? 1,
           });
           count++;
         }
-
         if (count >= 500) break;
       }
 
       await batch.commit();
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully imported $count students'),
+          content: Text(
+            'Successfully imported $count students to ${widget.isSuperAdmin ? "Registry" : _selectedDeptFilter}',
+          ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Import Failed: ${e.toString()}'),
@@ -118,7 +167,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         final Map<String, dynamic> student = {};
         for (var j = 0; j < headers.length; j++) {
           final header = headers[j];
-          if (header != null) {
+          if (header != null && j < row.length) {
             student[header] = row[j]?.value;
           }
         }
@@ -144,7 +193,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       final row = rows[i];
       final Map<String, dynamic> student = {};
       for (var j = 0; j < headers.length; j++) {
-        student[headers[j]] = row[j];
+        if (j < row.length) student[headers[j]] = row[j];
       }
       results.add(student);
     }
@@ -152,26 +201,31 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   }
 
   void _addStudent() {
-    final TextEditingController idController = TextEditingController();
-    final TextEditingController nameController = TextEditingController();
-    String? selectedDepartment;
+    final idController = TextEditingController();
+    final nameController = TextEditingController();
+
+    // Default selection is now locked to the admin's department
+    String? selectedDepartment = widget.isSuperAdmin
+        ? (_selectedDeptFilter == 'All Departments'
+              ? _departments[1]
+              : _selectedDeptFilter)
+        : (widget.initialDepartment ?? _departments[1]);
+
     int? selectedYear;
 
-    final List<String> departments = [
-      'Computer Engineering',
-      'Electronics',
-      'Mechanical',
-      'Civil',
-      'Electrical',
-    ];
-    final List<int> years = [1, 2, 3, 4];
+    // Filtered choices for regular admins: only their own department is selectable
+    final List<String> availableDepartments = widget.isSuperAdmin
+        ? _departments.where((d) => d != 'All Departments').toList()
+        : [widget.initialDepartment ?? _departments[1]];
+
+    final List<int> years = [1, 2, 3];
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
           title: const Text(
             'Add New Student',
@@ -183,24 +237,25 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildDialogTextField(
+                  _buildDialogField(
                     controller: idController,
                     label: 'Admission ID',
                     hint: 'e.g. 2024CS01',
                     icon: Icons.badge_outlined,
                   ),
                   const SizedBox(height: 16),
-                  _buildDialogTextField(
+                  _buildDialogField(
                     controller: nameController,
                     label: 'Full Name',
                     hint: 'Enter student name',
-                    icon: Icons.person_outline,
+                    icon: Icons.person_outline_rounded,
                   ),
                   const SizedBox(height: 16),
+
                   _buildDialogDropdown<String>(
                     label: 'Department',
                     value: selectedDepartment,
-                    items: departments,
+                    items: availableDepartments,
                     icon: Icons.business_rounded,
                     onChanged: (val) =>
                         setDialogState(() => selectedDepartment = val),
@@ -210,7 +265,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                     label: 'Current Year',
                     value: selectedYear,
                     items: years,
-                    icon: Icons.school_outlined,
+                    icon: Icons.school_rounded,
                     onChanged: (val) =>
                         setDialogState(() => selectedYear = val),
                   ),
@@ -223,10 +278,10 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              onPressed: () {
+            FilledButton(
+              onPressed: () async {
                 if (_formKey.currentState!.validate()) {
-                  _firestore
+                  await _firestore
                       .collection('students')
                       .doc(idController.text.trim())
                       .set({
@@ -235,17 +290,10 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                         'department': selectedDepartment,
                         'year': selectedYear,
                       });
-                  Navigator.pop(context);
+                  if (context.mounted) Navigator.pop(context);
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Add Student'),
+              child: const Text('Save Student'),
             ),
           ],
         ),
@@ -253,33 +301,26 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     );
   }
 
-  void _selectAll() {
-    setState(() {
-      for (var student in _currentFilteredStudents) {
-        _selectedIds.add(student.id);
-      }
-    });
-  }
-
   Future<void> _deleteSelectedStudents() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete ${_selectedIds.length} students?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Remove ${_selectedIds.length} Students?'),
         content: const Text(
-          'This action is permanent and will remove all selected student profiles.',
+          'This action is permanent and will remove selected student profiles from the database.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -292,13 +333,15 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       }
       await batch.commit();
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Removed ${_selectedIds.length} students')),
+        SnackBar(
+          content: Text('Successfully removed ${_selectedIds.length} students'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
 
-      setState(() {
-        _selectedIds.clear();
-      });
+      setState(() => _selectedIds.clear());
     }
   }
 
@@ -307,206 +350,385 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     final theme = Theme.of(context);
     bool isSelectionMode = _selectedIds.isNotEmpty;
 
+    // Security Gate: Prevent access if user is not a SuperAdmin and has no department
+    if (!widget.isSuperAdmin && widget.initialDepartment == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Access Denied")),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_person_rounded, size: 80, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                "Unauthorized Access",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              Text("Only Admins and SuperAdmins can view this page."),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: isSelectionMode ? theme.colorScheme.primary : theme.appBarTheme.backgroundColor,
-        iconTheme: isSelectionMode ? theme.primaryIconTheme : theme.iconTheme,
         title: Text(
           isSelectionMode
               ? '${_selectedIds.length} Selected'
-              : 'Student Management',
-          style: TextStyle(
-            color: isSelectionMode ? theme.colorScheme.onPrimary : theme.textTheme.titleLarge?.color,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
+              : 'Student Database',
         ),
+        centerTitle: true,
+        backgroundColor: isSelectionMode
+            ? theme.colorScheme.primaryContainer
+            : null,
+        foregroundColor: isSelectionMode
+            ? theme.colorScheme.onPrimaryContainer
+            : null,
         actions: [
-          if (isSelectionMode)
+          if (isSelectionMode) ...[
             IconButton(
               icon: const Icon(Icons.select_all_rounded),
-              tooltip: 'Select All Visible',
-              onPressed: _selectAll,
+              onPressed: () => setState(
+                () => _selectedIds.addAll(
+                  _currentFilteredStudents.map((s) => s.id),
+                ),
+              ),
             ),
-          if (isSelectionMode)
             IconButton(
-              icon: const Icon(Icons.delete_rounded),
+              icon: const Icon(Icons.delete_sweep_rounded),
               onPressed: _deleteSelectedStudents,
             ),
-          if (isSelectionMode)
             IconButton(
               icon: const Icon(Icons.close_rounded),
               onPressed: () => setState(() => _selectedIds.clear()),
             ),
-          if (!isSelectionMode)
+          ] else
             IconButton(
               onPressed: _startBulkImport,
-              icon: Icon(Icons.upload_file_rounded, color: theme.colorScheme.primary),
-              tooltip: 'Bulk Import (Excel/CSV)',
+              icon: const Icon(Icons.drive_folder_upload_rounded),
             ),
-          const SizedBox(width: 8),
         ],
       ),
       floatingActionButton: isSelectionMode
           ? null
           : FloatingActionButton.extended(
               onPressed: _addStudent,
-              backgroundColor: theme.colorScheme.primary,
-              icon: Icon(Icons.add_rounded, color: theme.colorScheme.onPrimary),
-              label: Text(
-                'Add Student',
-                style: TextStyle(
-                  color: theme.colorScheme.onPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Student'),
             ),
       body: Stack(
         children: [
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24.0),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(32),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Database Registry",
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.textTheme.bodySmall?.color,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Manage Students",
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (value) =>
-                          setState(() => _searchQuery = value),
-                      decoration: InputDecoration(
-                        hintText: 'Search by Name or ID',
-                        prefixIcon: Icon(
-                          Icons.search_rounded,
-                          color: theme.colorScheme.primary,
-                        ),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = "");
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: theme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Student List
+              _buildHeader(theme),
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _firestore.collection('students').snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError)
-                      return const Center(child: Text("Error loading data"));
-                    if (!snapshot.hasData)
-                      return Center(
-                        child: CircularProgressIndicator(color: theme.colorScheme.primary),
+                      return const Center(
+                        child: Text("Error fetching records"),
                       );
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
 
                     final allStudents = snapshot.data!.docs
                         .map((doc) => Student.fromFirestore(doc))
                         .toList();
-
                     _currentFilteredStudents = allStudents.where((s) {
-                      final query = _searchQuery.toLowerCase();
-                      return s.name.toLowerCase().contains(query) ||
-                          s.id.toLowerCase().contains(query);
+                      final q = _searchQuery.toLowerCase();
+                      final matchesSearch =
+                          s.name.toLowerCase().contains(q) ||
+                          s.id.toLowerCase().contains(q);
+
+                      // Filter list: Regular Admins are hard-locked to their own department
+                      bool matchesDept;
+                      if (widget.isSuperAdmin) {
+                        matchesDept =
+                            (_selectedDeptFilter == 'All Departments' ||
+                            s.department == _selectedDeptFilter);
+                      } else {
+                        matchesDept =
+                            (s.department == widget.initialDepartment);
+                      }
+
+                      return matchesSearch && matchesDept;
                     }).toList();
 
                     if (_currentFilteredStudents.isEmpty)
-                      return _buildEmptyState();
+                      return _buildEmptyState(theme);
 
                     return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
                       itemCount: _currentFilteredStudents.length,
-                      itemBuilder: (context, index) {
-                        final student = _currentFilteredStudents[index];
-                        final isSelected = _selectedIds.contains(student.id);
-                        return _buildStudentCard(student, isSelected);
-                      },
+                      itemBuilder: (context, index) => _buildStudentCard(
+                        _currentFilteredStudents[index],
+                        theme,
+                      ),
                     );
                   },
                 ),
               ),
             ],
           ),
-          if (_isImporting) _buildImportOverlay(),
+          if (_isImporting) _buildImportOverlay(theme),
         ],
       ),
     );
   }
 
-  Widget _buildImportOverlay() {
-    final theme = Theme.of(context);
+  Widget _buildHeader(ThemeData theme) {
     return Container(
-      color: Colors.black54,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "REGISTRY MANAGEMENT",
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (widget.isSuperAdmin) _buildDeptFilter(theme),
+              if (!widget.isSuperAdmin)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.initialDepartment ?? "Registry",
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _searchController,
+            onChanged: (v) => setState(() => _searchQuery = v),
+            decoration: InputDecoration(
+              hintText: 'Search by student name or ID...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeptFilter(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedDeptFilter,
+          icon: Icon(
+            Icons.filter_list_rounded,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+          dropdownColor: isDark
+              ? const Color(0xFF1E293B)
+              : theme.colorScheme.surface,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : theme.colorScheme.onSurface,
+          ),
+          onChanged: (String? newValue) {
+            if (newValue != null)
+              setState(() => _selectedDeptFilter = newValue);
+          },
+          items: _departments
+              .map<DropdownMenuItem<String>>(
+                (String value) => DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value == 'All Departments' ? 'Global View' : value,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentCard(Student student, ThemeData theme) {
+    final isSelected = _selectedIds.contains(student.id);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.dividerColor.withOpacity(0.1),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      color: isSelected
+          ? theme.colorScheme.primaryContainer.withOpacity(0.2)
+          : null,
+      child: ListTile(
+        onLongPress: () => setState(() => _selectedIds.add(student.id)),
+        onTap: () {
+          if (_selectedIds.isNotEmpty)
+            setState(
+              () => isSelected
+                  ? _selectedIds.remove(student.id)
+                  : _selectedIds.add(student.id),
+            );
+        },
+        leading: CircleAvatar(
+          backgroundColor: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.primary.withOpacity(0.1),
+          child: isSelected
+              ? const Icon(Icons.check_rounded, color: Colors.white)
+              : Text(
+                  student.name[0].toUpperCase(),
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+        title: Text(
+          student.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text("${student.department} • Year ${student.year}"),
+        trailing: _selectedIds.isEmpty
+            ? IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.colorScheme.error,
+                ),
+                onPressed: () => _confirmSingleDelete(student, theme),
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _confirmSingleDelete(Student student, ThemeData theme) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Student?'),
+        content: Text('Remove ${student.name} from registry?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await _firestore.collection('students').doc(student.id).delete();
+              if (context.mounted) Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.group_off_rounded,
+            size: 80,
+            color: theme.disabledColor.withOpacity(0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isEmpty ? 'No students found' : 'No matching results',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            _searchQuery.isEmpty
+                ? 'Add your first student to begin.'
+                : 'Try a different search term.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.disabledColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImportOverlay(ThemeData theme) {
+    return Container(
+      color: Colors.black45,
       child: Center(
         child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 40),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(28),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(32.0),
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: theme.colorScheme.primary),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 24),
                 Text(
-                  "Bulk Importing...",
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  'Processing File...',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Processing your document and updating the registry.",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                const SizedBox(height: 4),
+                const Text('Syncing data with cloud registry'),
               ],
             ),
           ),
@@ -515,128 +737,7 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     );
   }
 
-  Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _searchQuery.isEmpty
-                ? Icons.people_outline_rounded
-                : Icons.search_off_rounded,
-            size: 64,
-            color: theme.dividerColor,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _searchQuery.isEmpty
-                ? "No students registered yet"
-                : "No matching students found",
-            style: theme.textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStudentCard(Student student, bool isSelected) {
-    final theme = Theme.of(context);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isSelected ? theme.colorScheme.primary.withOpacity(0.05) : theme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onLongPress: () {
-          setState(() {
-            if (isSelected)
-              _selectedIds.remove(student.id);
-            else
-              _selectedIds.add(student.id);
-          });
-        },
-        onTap: () {
-          if (_selectedIds.isNotEmpty) {
-            setState(() {
-              if (isSelected)
-                _selectedIds.remove(student.id);
-              else
-                _selectedIds.add(student.id);
-            });
-          }
-        },
-        leading: isSelected
-            ? CircleAvatar(
-                backgroundColor: theme.colorScheme.primary,
-                child: Icon(Icons.check, color: theme.colorScheme.onPrimary, size: 20),
-              )
-            : CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                child: Icon(Icons.person, color: theme.colorScheme.primary, size: 20),
-              ),
-        title: Text(
-          student.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Text(
-          "${student.department} • Year ${student.year}",
-          style: theme.textTheme.bodySmall,
-        ),
-        trailing: isSelected
-            ? null
-            : IconButton(
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  color: theme.colorScheme.error,
-                  size: 22,
-                ),
-                onPressed: () => _confirmDelete(student),
-              ),
-      ),
-    );
-  }
-
-  void _confirmDelete(Student student) {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Remove Student?'),
-        content: Text('Delete ${student.name} from the database?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _firestore.collection('students').doc(student.id).delete();
-              Navigator.pop(context);
-            },
-            child: Text('Remove', style: TextStyle(color: theme.colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDialogTextField({
+  Widget _buildDialogField({
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -648,14 +749,16 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+        filled: true,
+        fillColor: Theme.of(
+          context,
+        ).colorScheme.surfaceVariant.withOpacity(0.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
         ),
       ),
-      validator: (value) =>
-          (value == null || value.isEmpty) ? 'Required' : null,
+      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
     );
   }
 
@@ -668,23 +771,23 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   }) {
     return DropdownButtonFormField<T>(
       value: value,
+      items: items
+          .map((i) => DropdownMenuItem<T>(value: i, child: Text(i.toString())))
+          .toList(),
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+        filled: true,
+        fillColor: Theme.of(
+          context,
+        ).colorScheme.surfaceVariant.withOpacity(0.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
         ),
       ),
-      items: items
-          .map(
-            (item) =>
-                DropdownMenuItem<T>(value: item, child: Text(item.toString())),
-          )
-          .toList(),
-      onChanged: onChanged,
-      validator: (val) => val == null ? 'Required' : null,
+      validator: (v) => v == null ? 'Required' : null,
     );
   }
 }

@@ -10,7 +10,6 @@ import 'package:latepass/superadmin/admin_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
-  // We keep this for backward compatibility, but we will query Firestore directly for fresh data
   final List<Admin> admins;
 
   const LoginPage({super.key, required this.admins});
@@ -29,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
 
   final List<String> _superAdminEmails = ['praveenmtdarker@gmail.com'];
 
+  /// Unified error handler with network detection
   void _showAuthError(dynamic e, String defaultPrefix) {
     String message = '$defaultPrefix failed';
     final errorStr = e.toString().toLowerCase();
@@ -37,12 +37,11 @@ class _LoginPageState extends State<LoginPage> {
         errorStr.contains('network') ||
         errorStr.contains('unavailable') ||
         errorStr.contains('failed host lookup')) {
-      message =
-          "No internet connection. Please check your network and try again.";
+      message = "Connection issue. Please check your internet and try again.";
     } else if (e is FirebaseAuthException) {
       message = e.message ?? "Authentication failed";
     } else {
-      message = "$defaultPrefix error occurred.";
+      message = "$defaultPrefix: ${e.toString()}";
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -50,8 +49,8 @@ class _LoginPageState extends State<LoginPage> {
         content: Text(message),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(20),
       ),
     );
   }
@@ -77,8 +76,10 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!_checkIsSuperAdmin(signedInEmail)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Access Denied: $signedInEmail is not a SuperAdmin'),
+          const SnackBar(
+            content: Text(
+              'Access Denied: You are not authorized as a SuperAdmin',
+            ),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -117,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setString('user_role', 'student');
       Navigator.pushReplacementNamed(context, '/student');
     } catch (e) {
-      _showAuthError(e, 'Anonymous Login');
+      _showAuthError(e, 'Guest Login');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -139,7 +140,6 @@ class _LoginPageState extends State<LoginPage> {
       bool isSuperAdmin = _checkIsSuperAdmin(email);
       Admin? currentAdmin;
 
-      // 1. FRESH AUTHORIZATION CHECK (Query Firestore directly instead of using widget.admins)
       if (!isSuperAdmin) {
         final adminQuery = await FirebaseFirestore.instance
             .collection('admins')
@@ -154,13 +154,11 @@ class _LoginPageState extends State<LoginPage> {
         final adminData = adminQuery.docs.first;
         currentAdmin = Admin.fromFirestore(adminData);
 
-        // Verify password match in Firestore as requested
         if (currentAdmin.password != password) {
           throw 'Access Denied: Incorrect password for this admin account.';
         }
       }
 
-      // 2. Firebase Authentication (Secure sign-in)
       await _auth.signInWithEmailAndPassword(email: email, password: password);
 
       final prefs = await SharedPreferences.getInstance();
@@ -203,16 +201,19 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
-          _buildBackgroundDecor(),
+          _buildBackgroundDecor(theme, isDark),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 28.0),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
@@ -220,33 +221,16 @@ class _LoginPageState extends State<LoginPage> {
                     child: IntrinsicHeight(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: 40),
-                          Icon(
-                            Icons.lock_person_rounded,
-                            size: 80,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "LatePass Portal",
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.5,
-                                ),
-                          ),
+                          const SizedBox(height: 50),
+                          _buildBrandHeader(theme),
                           const SizedBox(height: 48),
-                          _buildLoginCard(),
+                          _buildLoginCard(theme, isDark),
                           const SizedBox(height: 32),
-                          _buildDivider(),
+                          _buildDivider(theme),
                           const SizedBox(height: 32),
-                          _buildGoogleButton(),
-                          const SizedBox(height: 16),
-                          _buildGuestButton(),
-                          const SizedBox(height: 40),
+                          _buildFooterActions(theme, isDark),
+                          const SizedBox(height: 50),
                         ],
                       ),
                     ),
@@ -260,31 +244,79 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildBackgroundDecor() {
-    final theme = Theme.of(context);
+  Widget _buildBrandHeader(ThemeData theme) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.shield_rounded,
+            size: 64,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          "LatePass Portal",
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -1.2,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Secure Institutional Access & Registry",
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackgroundDecor(ThemeData theme, bool isDark) {
     return Stack(
       children: [
         Positioned(
-          top: -100,
+          top: -120,
           right: -100,
           child: Container(
-            width: 300,
-            height: 300,
+            width: 350,
+            height: 350,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              gradient: RadialGradient(
+                colors: [
+                  theme.colorScheme.primary.withOpacity(isDark ? 0.18 : 0.1),
+                  theme.colorScheme.primary.withOpacity(0),
+                ],
+              ),
             ),
           ),
         ),
         Positioned(
-          bottom: -50,
-          left: -50,
+          bottom: -80,
+          left: -80,
           child: Container(
-            width: 200,
-            height: 200,
+            width: 280,
+            height: 280,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: theme.colorScheme.secondary.withOpacity(0.1),
+              gradient: RadialGradient(
+                colors: [
+                  theme.colorScheme.secondary.withOpacity(isDark ? 0.15 : 0.08),
+                  theme.colorScheme.secondary.withOpacity(0),
+                ],
+              ),
             ),
           ),
         ),
@@ -292,63 +324,76 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLoginCard() {
-    final theme = Theme.of(context);
+  Widget _buildLoginCard(ThemeData theme, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(36),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.05),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: isDark
+                ? Colors.black.withOpacity(0.4)
+                : Colors.black.withOpacity(0.06),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
           ),
         ],
       ),
       child: Column(
         children: [
-          _buildTextField(
+          _buildModernField(
             controller: emailController,
-            label: "Admin Email",
+            label: "Administrative Email",
+            hint: "admin@latepass.edu",
             icon: Icons.alternate_email_rounded,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: passwordController,
-            label: "Admin Password",
-            icon: Icons.lock_outline_rounded,
-            isPassword: true,
+            theme: theme,
           ),
           const SizedBox(height: 24),
+          _buildModernField(
+            controller: passwordController,
+            label: "Access Key",
+            hint: "Enter your password",
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            theme: theme,
+          ),
+          const SizedBox(height: 36),
           SizedBox(
             width: double.infinity,
-            height: 54,
+            height: 62,
             child: ElevatedButton(
               onPressed: _isLoading ? null : _signInWithEmailAndPassword,
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: theme.colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 elevation: 0,
-              ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                shadowColor: theme.colorScheme.primary.withOpacity(0.5),
+              ).copyWith(elevation: ButtonStyleButton.allOrNull(0)),
               child: _isLoading
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 24,
+                      height: 24,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                        strokeWidth: 3,
                         color: Colors.white,
                       ),
                     )
                   : const Text(
-                      'Sign in as Admin',
+                      'Verify & Login',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
             ),
@@ -358,123 +403,160 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildGoogleButton() {
-    final theme = Theme.of(context);
-    return OutlinedButton.icon(
-      onPressed: _isLoading ? null : _signInWithGoogle,
-      icon: Image.network(
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
-        height: 20,
-        errorBuilder: (context, error, stackTrace) => const Icon(
-          Icons.account_circle_rounded,
-          size: 20,
-        ),
-      ),
-      label: const Text('SuperAdmin Google Access'),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        side: BorderSide(color: theme.dividerColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildGuestButton() {
-    final theme = Theme.of(context);
-    return TextButton(
-      onPressed: _isLoading ? null : _signInAnonymously,
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-      ),
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: theme.textTheme.bodyMedium,
-          children: [
-            const TextSpan(text: "Are you a student? "),
-            TextSpan(
-              text: "Continue as Guest",
-              style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    final theme = Theme.of(context);
-    return Row(
+  Widget _buildFooterActions(ThemeData theme, bool isDark) {
+    return Column(
       children: [
-        Expanded(child: Divider(color: theme.dividerColor)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            "OR CONNECT WITH",
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: OutlinedButton.icon(
+            onPressed: _isLoading ? null : _signInWithGoogle,
+            icon: Image.network(
+              'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+              height: 22,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.account_circle),
+            ),
+            label: const Text(
+              'SuperAdmin Google Identity',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: theme.dividerColor.withOpacity(0.12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              backgroundColor: isDark
+                  ? Colors.white.withOpacity(0.04)
+                  : Colors.transparent,
             ),
           ),
         ),
-        Expanded(child: Divider(color: theme.dividerColor)),
+        const SizedBox(height: 20),
+        TextButton(
+          onPressed: _isLoading ? null : _signInAnonymously,
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                fontWeight: FontWeight.w500,
+              ),
+              children: [
+                const TextSpan(text: "Not an Admin? "),
+                TextSpan(
+                  text: "Enter as Guest",
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildDivider(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: theme.dividerColor.withOpacity(0.1))),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "OR AUTHENTICATE WITH",
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.8,
+              color: theme.colorScheme.onSurface.withOpacity(0.35),
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: theme.dividerColor.withOpacity(0.1))),
+      ],
+    );
+  }
+
+  Widget _buildModernField({
     required TextEditingController controller,
     required String label,
+    required String hint,
     required IconData icon,
+    required ThemeData theme,
     bool isPassword = false,
   }) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
         TextField(
           controller: controller,
           obscureText: isPassword ? _obscureText : false,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: theme.inputDecorationTheme.prefixIconColor, size: 20),
+            prefixIcon: Icon(
+              icon,
+              color: theme.colorScheme.primary.withOpacity(0.6),
+              size: 22,
+            ),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
                       _obscureText
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: theme.inputDecorationTheme.suffixIconColor,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
                       size: 20,
                     ),
                     onPressed: () =>
                         setState(() => _obscureText = !_obscureText),
                   )
                 : null,
-            hintText: isPassword ? "••••••••" : "Enter your email",
+            hintText: hint,
+            hintStyle: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.2),
+            ),
             filled: true,
-            fillColor: theme.inputDecorationTheme.fillColor,
+            fillColor: theme.colorScheme.onSurface.withOpacity(0.04),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
+              horizontal: 20,
+              vertical: 20,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.dividerColor),
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.dividerColor),
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide(
+                color: theme.colorScheme.primary.withOpacity(0.5),
+                width: 1.5,
+              ),
             ),
           ),
         ),

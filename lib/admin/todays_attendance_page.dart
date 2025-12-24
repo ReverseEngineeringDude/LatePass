@@ -1,5 +1,3 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, deprecated_member_use
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/edit_attendance_page.dart';
@@ -8,40 +6,59 @@ class TodaysAttendancePage extends StatefulWidget {
   const TodaysAttendancePage({super.key});
 
   @override
-  _TodaysAttendancePageState createState() => _TodaysAttendancePageState();
+  State<TodaysAttendancePage> createState() => _TodaysAttendancePageState();
 }
 
 class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
-  void _deleteAttendanceRecord(String recordId) {
-    FirebaseFirestore.instance.collection('attendance').doc(recordId).delete();
-  }
-
-  void _showDeleteConfirmationDialog(String recordId) {
+  Future<void> _deleteAttendanceRecord(
+    String recordId,
+    String studentName,
+  ) async {
     final theme = Theme.of(context);
-    showDialog(
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Deletion'),
-          content: const Text('Are you sure you want to delete this attendance record?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Remove Record?'),
+        content: Text(
+          'Are you sure you want to delete the attendance log for $studentName?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
             ),
-            TextButton(
-              child: Text('Delete', style: TextStyle(color: theme.colorScheme.error)),
-              onPressed: () {
-                _deleteAttendanceRecord(recordId);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('attendance')
+            .doc(recordId)
+            .delete();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Record for $studentName deleted'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete record')),
+        );
+      }
+    }
   }
 
   @override
@@ -52,87 +69,14 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          "Today's Attendance",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        title: const Text("Today's Attendance"),
+        centerTitle: true,
       ),
       body: Column(
         children: [
-          // Header Section
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24.0),
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Attendance Logs",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodySmall?.color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Daily Registry",
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('attendance')
-                      .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
-                      .where('timestamp', isLessThan: endOfDay)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final count = snapshot.hasData
-                        ? snapshot.data!.docs.length
-                        : 0;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "$count Students Logged Today",
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Attendance List
+          _buildHeader(theme, startOfDay, endOfDay),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -143,51 +87,23 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Text(
-                        'An error occurred: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
+                  return const Center(child: Text('Error loading logs'));
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(color: theme.colorScheme.primary),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
-                final attendanceDocs = snapshot.data!.docs;
-
-                if (attendanceDocs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.history_toggle_off_rounded,
-                          size: 64,
-                          color: theme.dividerColor,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No attendance records for today.',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                final docs = snapshot.data!.docs;
+                if (docs.isEmpty) return _buildEmptyState(theme);
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(24),
-                  itemCount: attendanceDocs.length,
-                  itemBuilder: (context, index) {
-                    final attendance = attendanceDocs[index];
-                    return _buildAttendanceRecordCard(attendance);
-                  },
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) =>
+                      _buildAttendanceCard(docs[index], theme),
                 );
               },
             ),
@@ -197,33 +113,92 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
     );
   }
 
-  Widget _buildAttendanceRecordCard(
+  Widget _buildHeader(ThemeData theme, DateTime start, DateTime end) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "ATTENDANCE LOGS",
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Daily Registry",
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('attendance')
+                    .where('timestamp', isGreaterThanOrEqualTo: start)
+                    .where('timestamp', isLessThan: end)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final count = snapshot.hasData
+                      ? snapshot.data!.docs.length
+                      : 0;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      "$count Logged",
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceCard(
     QueryDocumentSnapshot attendance,
+    ThemeData theme,
   ) {
-    final theme = Theme.of(context);
     final timestamp = attendance['timestamp'] as Timestamp?;
     final dateTime = timestamp?.toDate() ?? DateTime.now();
     final studentId = attendance['studentId'];
     final markedBy = attendance['markedBy'];
-    // Manual time formatting
-    int hour24 = dateTime.hour;
-    int hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-    String minute = dateTime.minute.toString().padLeft(2, '0');
-    String period = hour24 >= 12 ? 'PM' : 'AM';
-    String formattedTime = "$hour12:$minute $period";
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
+    final String formattedTime =
+        "${dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.hour >= 12 ? 'PM' : 'AM'}";
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.1)),
       ),
       child: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance
@@ -231,20 +206,13 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
             .doc(studentId)
             .get(),
         builder: (context, studentSnapshot) {
-          if (!studentSnapshot.hasData) {
-            return const Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Center(child: LinearProgressIndicator(minHeight: 2)),
-            );
-          }
-
-          final studentData = studentSnapshot.data!;
-          final studentName = studentData.exists
-              ? (studentData['name'] ?? 'Unknown')
-              : 'Unknown';
-          final dept = studentData.exists
-              ? (studentData['department'] ?? 'N/A')
-              : 'N/A';
+          final studentName =
+              (studentSnapshot.hasData && studentSnapshot.data!.exists)
+              ? (studentSnapshot.data!['name'] ?? 'Unknown Student')
+              : 'Loading...';
+          final dept = (studentSnapshot.hasData && studentSnapshot.data!.exists)
+              ? (studentSnapshot.data!['department'] ?? 'N/A')
+              : '...';
 
           return FutureBuilder<DocumentSnapshot>(
             future: FirebaseFirestore.instance
@@ -258,14 +226,17 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                   : 'System';
 
               return Padding(
-                padding: const EdgeInsets.fromLTRB(16,16,0,16),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 24,
-                      backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                      backgroundColor: theme.colorScheme.primary.withOpacity(
+                        0.1,
+                      ),
                       child: Text(
-                        studentName.isNotEmpty ? studentName[0].toUpperCase() : 'U',
+                        studentName.isNotEmpty
+                            ? studentName[0].toUpperCase()
+                            : '?',
                         style: TextStyle(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -284,25 +255,12 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                               fontSize: 16,
                             ),
                           ),
+                          Text(dept, style: theme.textTheme.bodySmall),
+                          const SizedBox(height: 6),
                           Text(
-                            dept,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.scaffoldBackgroundColor,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              "Marked by: $adminName",
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                            "Marked by: $adminName",
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.disabledColor,
                             ),
                           ),
                         ],
@@ -311,42 +269,46 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 16,
-                        ),
-                        const SizedBox(height: 4),
                         Text(
                           formattedTime,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
                             color: theme.colorScheme.primary,
                           ),
                         ),
-                      ],
-                    ),
-                     PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                           Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditAttendancePage(attendance: attendance),
+                        PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            size: 20,
+                            color: theme.disabledColor,
+                          ),
+                          onSelected: (val) {
+                            if (val == 'edit') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditAttendancePage(
+                                    attendance: attendance,
+                                  ),
+                                ),
+                              );
+                            } else if (val == 'delete') {
+                              _deleteAttendanceRecord(
+                                attendance.id,
+                                studentName,
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit Record'),
                             ),
-                          );
-                        } else if (value == 'delete') {
-                           _showDeleteConfirmationDialog(attendance.id);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Text('Edit'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Text('Delete'),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete Record'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -356,6 +318,35 @@ class _TodaysAttendancePageState extends State<TodaysAttendancePage> {
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.history_toggle_off_rounded,
+            size: 80,
+            color: theme.disabledColor.withOpacity(0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Activity Yet',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Attendance logs for today will appear here.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.disabledColor,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -79,7 +79,7 @@ class MyApp extends StatelessWidget {
           home: const AuthWrapper(),
           routes: {
             '/login': (context) => const LoginPage(admins: []),
-            '/admin': (context) => const AdminPage(),
+            '/admin': (context) => AdminPage(),
             '/student': (context) => const StudentPage(),
             '/superadmin': (context) =>
                 SuperAdminPage(admins: const [], onAddAdmin: (_) {}),
@@ -89,7 +89,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});

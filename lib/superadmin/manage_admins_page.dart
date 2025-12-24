@@ -1,5 +1,3 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +9,7 @@ class ManageAdminsPage extends StatefulWidget {
   const ManageAdminsPage({super.key, required this.onAddAdmin});
 
   @override
-  _ManageAdminsPageState createState() => _ManageAdminsPageState();
+  State<ManageAdminsPage> createState() => _ManageAdminsPageState();
 }
 
 class _ManageAdminsPageState extends State<ManageAdminsPage> {
@@ -36,12 +34,10 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     'Electrical',
   ];
 
-  /// Creates a new admin account in Auth and Firestore
   Future<void> _createAdmin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        // Create user in Firebase Auth
         final UserCredential userCredential = await _auth
             .createUserWithEmailAndPassword(
               email: _emailController.text.trim(),
@@ -59,16 +55,15 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
             password: _passwordController.text.trim(),
           );
 
-          // Save to Firestore
           await _firestore
               .collection('admins')
               .doc(user.uid)
               .set(newAdmin.toJson());
 
-          // Notify parent state
           widget.onAddAdmin(newAdmin);
-
           _clearForm();
+
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Admin account created successfully'),
@@ -78,16 +73,13 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
           );
         }
       } on FirebaseAuthException catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'An authentication error occurred.'),
+            content: Text(e.message ?? 'An error occurred'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create admin record')),
         );
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -105,7 +97,6 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     });
   }
 
-  /// Updates an existing admin's metadata in Firestore
   Future<void> _updateAdmin(
     Admin admin,
     String name,
@@ -118,42 +109,42 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
         'department': dept,
         'isFaculty': faculty,
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Admin updated successfully'),
+          content: Text('Admin updated'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Update failed: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Update failed')));
     }
   }
 
-  /// Deletes an admin's authorization document from Firestore
   Future<void> _deleteAdmin(Admin admin) async {
     final theme = Theme.of(context);
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Admin Authority?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Revoke Access?'),
         content: Text(
-          'This will remove all admin permissions for ${admin.name}. This action cannot be undone.',
+          'This will remove all administrative permissions for ${admin.name}. This action is permanent.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.error),
-            child: Text('Delete', style: TextStyle(color: theme.colorScheme.onError)),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Revoke'),
           ),
         ],
       ),
@@ -162,19 +153,18 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     if (confirm == true) {
       try {
         await _firestore.collection('admins').doc(admin.adminId).delete();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Admin removed from database'),
+            content: Text('Admin access revoked'),
             behavior: SnackBarBehavior.floating,
           ),
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Deletion failed: $e'),
-            backgroundColor: theme.colorScheme.error,
-          ),
-        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Deletion failed')));
       }
     }
   }
@@ -183,49 +173,54 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     final nameEdit = TextEditingController(text: admin.name);
     String? deptEdit = admin.department;
     bool facultyEdit = admin.isFaculty;
-    final theme = Theme.of(context);
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
-          title: Text('Edit Admin: ${admin.name}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDialogTextField(
-                controller: nameEdit,
-                label: 'Full Name',
-                icon: Icons.person_outline,
-              ),
-              const SizedBox(height: 16),
-              _buildDialogDropdown<String>(
-                label: 'Department',
-                value: deptEdit,
-                items: _departments,
-                icon: Icons.business_rounded,
-                onChanged: (val) => setDialogState(() => deptEdit = val),
-              ),
-              SwitchListTile(
-                title: Text(
-                  'Faculty Privileges',
-                  style: theme.textTheme.bodyMedium,
+          title: Text(
+            'Edit Admin Info',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildField(
+                  controller: nameEdit,
+                  label: 'Full Name',
+                  icon: Icons.person_outline_rounded,
                 ),
-                value: facultyEdit,
-                onChanged: (val) => setDialogState(() => facultyEdit = val),
-                activeColor: theme.colorScheme.primary,
-              ),
-            ],
+                const SizedBox(height: 16),
+                _buildDropdown<String>(
+                  label: 'Department',
+                  value: deptEdit,
+                  items: _departments,
+                  icon: Icons.business_rounded,
+                  onChanged: (val) => setDialogState(() => deptEdit = val),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: const Text(
+                    'Faculty Privileges',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  value: facultyEdit,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setDialogState(() => facultyEdit = val),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 _updateAdmin(
                   admin,
@@ -235,10 +230,6 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
                 );
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-              ),
               child: const Text('Save Changes'),
             ),
           ],
@@ -251,182 +242,186 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Admin Management',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          // Registration Form
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Register New Administrator",
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildRegistrationCard(),
-                  const SizedBox(height: 32),
-                  Text(
-                    "Active Administrators",
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(title: const Text('Admin Management'), centerTitle: true),
+      body: Column(
+        children: [
+          _buildHeader(theme),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              children: [
+                _buildSectionLabel(theme, "REGISTER NEW ACCESS"),
+                const SizedBox(height: 16),
+                _buildRegistrationForm(theme),
+                const SizedBox(height: 40),
+                _buildSectionLabel(theme, "ACTIVE ADMINISTRATORS"),
+                const SizedBox(height: 16),
+                StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('admins').snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text('Error loading registry'),
+                      );
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final admins = snapshot.data!.docs
+                        .map((doc) => Admin.fromFirestore(doc))
+                        .toList();
+                    if (admins.isEmpty) {
+                      return const Center(child: Text('No admins found'));
+                    }
+
+                    return Column(
+                      children: admins
+                          .map((admin) => _buildAdminCard(admin, theme))
+                          .toList(),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-
-          // Admin List
-          StreamBuilder<QuerySnapshot>(
-            stream: _firestore.collection('admins').snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const SliverToBoxAdapter(
-                  child: Center(child: Text('Error loading admins')),
-                );
-              }
-              if (!snapshot.hasData) {
-                return SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
-                );
-              }
-
-              final admins = snapshot.data!.docs
-                  .map((doc) => Admin.fromFirestore(doc))
-                  .toList();
-
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildAdminTile(admins[index]),
-                  childCount: admins.length,
-                ),
-              );
-            },
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
   }
 
-  Widget _buildRegistrationCard() {
-    final theme = Theme.of(context);
+  Widget _buildHeader(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "ADMIN MANAGEMENT",
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Admin Registry",
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(ThemeData theme, String text) {
+    return Text(
+      text,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: theme.colorScheme.primary,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
+  Widget _buildRegistrationForm(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.1)),
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            _buildTextField(
-              controller: _nameController,
-              label: 'Full Name',
-              hint: 'John Doe',
-              icon: Icons.person_outline,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _emailController,
-              label: 'Email',
-              hint: 'admin@latepass.com',
-              icon: Icons.alternate_email_rounded,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _passwordController,
-              label: 'Initial Password',
-              hint: '••••••••',
-              icon: Icons.lock_outline_rounded,
-              isPassword: true,
-            ),
-            const SizedBox(height: 16),
-            _buildDialogDropdown<String>(
-              label: 'Department',
-              value: _selectedDepartment,
-              items: _departments,
-              icon: Icons.business_rounded,
-              onChanged: (val) => setState(() => _selectedDepartment = val),
-            ),
-            SwitchListTile(
-              title: Text(
-                'Faculty Member',
-                style: theme.textTheme.bodyMedium,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              _buildField(
+                controller: _nameController,
+                label: 'Full Name',
+                hint: 'e.g. John Doe',
+                icon: Icons.person_outline_rounded,
               ),
-              value: _isFaculty,
-              onChanged: (val) => setState(() => _isFaculty = val),
-              activeColor: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _createAdmin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
+              const SizedBox(height: 16),
+              _buildField(
+                controller: _emailController,
+                label: 'Email Address',
+                hint: 'admin@latepass.com',
+                icon: Icons.alternate_email_rounded,
+              ),
+              const SizedBox(height: 16),
+              _buildField(
+                controller: _passwordController,
+                label: 'Password',
+                hint: '••••••••',
+                icon: Icons.lock_outline_rounded,
+                isPassword: true,
+              ),
+              const SizedBox(height: 16),
+              _buildDropdown<String>(
+                label: 'Department',
+                value: _selectedDepartment,
+                items: _departments,
+                icon: Icons.business_rounded,
+                onChanged: (val) => setState(() => _selectedDepartment = val),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                title: const Text(
+                  'Faculty Privileges',
+                  style: TextStyle(fontSize: 14),
                 ),
-                child: _isLoading
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.onPrimary,
-                        ),
-                      )
-                    : const Text(
-                        'Create Admin Account',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                value: _isFaculty,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) => setState(() => _isFaculty = val),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton(
+                  onPressed: _isLoading ? null : _createAdmin,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Register Admin'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildAdminTile(Admin admin) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
+  Widget _buildAdminCard(Admin admin, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.1)),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
           child: Icon(
@@ -467,10 +462,10 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildField({
     required TextEditingController controller,
     required String label,
-    required String hint,
+    String? hint,
     required IconData icon,
     bool isPassword = false,
   }) {
@@ -481,48 +476,30 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
+        prefixIcon: Icon(icon, size: 18),
+        filled: true,
+        fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   _obscureText
                       ? Icons.visibility_off_rounded
                       : Icons.visibility_rounded,
-                  size: 20,
-                  color: theme.inputDecorationTheme.suffixIconColor,
+                  size: 18,
                 ),
                 onPressed: () => setState(() => _obscureText = !_obscureText),
               )
             : null,
-        filled: true,
-        fillColor: theme.inputDecorationTheme.fillColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.dividerColor),
-        ),
       ),
-      validator: (value) =>
-          (value == null || value.isEmpty) ? 'Required' : null,
+      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
     );
   }
 
-  Widget _buildDialogTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-  }) {
-    final theme = Theme.of(context);
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildDialogDropdown<T>({
+  Widget _buildDropdown<T>({
     required String label,
     required T? value,
     required List<T> items,
@@ -532,18 +509,26 @@ class _ManageAdminsPageState extends State<ManageAdminsPage> {
     final theme = Theme.of(context);
     return DropdownButtonFormField<T>(
       value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20, color: theme.inputDecorationTheme.prefixIconColor),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
       items: items
           .map(
-            (item) =>
-                DropdownMenuItem<T>(value: item, child: Text(item.toString())),
+            (i) => DropdownMenuItem<T>(
+              value: i,
+              child: Text(i.toString(), style: const TextStyle(fontSize: 14)),
+            ),
           )
           .toList(),
       onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 18),
+        filled: true,
+        fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      validator: (v) => v == null ? 'Required' : null,
     );
   }
 }
