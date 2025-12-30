@@ -29,6 +29,7 @@ class SuperAdminPage extends StatefulWidget {
 
 class _SuperAdminPageState extends State<SuperAdminPage> {
   String _selectedDept = 'All Departments';
+  late Future<QuerySnapshot> _studentsFuture;
 
   final List<String> _departments = [
     'All Departments',
@@ -38,6 +39,13 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
     'Civil',
     'Electrical',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fetch student registry for high-performance chart lookups
+    _studentsFuture = FirebaseFirestore.instance.collection('students').get();
+  }
 
   // Logic for scanning student IDs
   Future<bool> _handleScan(String value) async {
@@ -62,11 +70,13 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
 
         final isAlreadyMarked = attendanceQuery.docs.any((doc) {
           final data = doc.data();
+          // Handle null timestamp for pending writes to prevent double scans during sync
           final ts = (data['timestamp'] as Timestamp?)?.toDate();
+          final checkDate = ts ?? DateTime.now();
+
           return data['studentId'] == value &&
-              ts != null &&
-              ts.isAfter(startOfDay) &&
-              ts.isBefore(endOfDay);
+              checkDate.isAfter(startOfDay) &&
+              checkDate.isBefore(endOfDay);
         });
 
         if (isAlreadyMarked) {
@@ -84,6 +94,8 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
 
         await FirebaseFirestore.instance.collection('attendance').add({
           'studentId': student.id,
+          'studentDepartment': student.department,
+          'studentYear': student.year,
           'timestamp': FieldValue.serverTimestamp(),
           'markedBy': adminId,
         });
@@ -268,8 +280,10 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
             child: Column(
               children: [
                 _buildHeader(theme, isDark),
+                const SizedBox(height: 24),
+                _buildAnalyticsSection(theme, isDark),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
                   child: Row(
                     children: [
                       Text(
@@ -314,6 +328,318 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAnalyticsSection(ThemeData theme, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: 8),
+              Text(
+                "SYSTEM INSIGHTS",
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isDark ? Colors.white38 : theme.colorScheme.primary,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildWeeklyTrend(theme, isDark),
+          const SizedBox(height: 16),
+          _buildEngagementIntensity(theme, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyTrend(ThemeData theme, bool isDark) {
+    return Container(
+      height: 240, // Increased height to prevent vertical RenderFlex overflow
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Weekly Activity",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+              ),
+              Text(
+                "Last 7 Days",
+                style: TextStyle(
+                  color: isDark ? Colors.white38 : theme.disabledColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(
+            height: 16,
+          ), // Replaced Spacer with fixed gap for stability
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('attendance')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data!.docs;
+                final now = DateTime.now();
+                List<int> counts = List.filled(7, 0);
+                final weekDayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                List<String> labels = List.filled(7, '');
+
+                for (int i = 0; i < 7; i++) {
+                  final day = now.subtract(Duration(days: i));
+                  labels[6 - i] = weekDayNames[day.weekday - 1];
+
+                  counts[6 - i] = docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    // Handle pending writes (null timestamp) as "now" so graphs refresh instantly
+                    final ts = data['timestamp'] as Timestamp?;
+                    final date = (ts ?? Timestamp.now()).toDate();
+
+                    final bool sameDay =
+                        date.day == day.day &&
+                        date.month == day.month &&
+                        date.year == day.year;
+                    final bool sameDept =
+                        _selectedDept == 'All Departments' ||
+                        (data['studentDepartment'] ?? '').toString().trim() ==
+                            _selectedDept;
+
+                    return sameDay && sameDept;
+                  }).length;
+                }
+
+                int max = counts.reduce((a, b) => a > b ? a : b);
+                if (max == 0) max = 1;
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: List.generate(7, (index) {
+                    final double h = (counts[index] / max) * 100;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "${counts[index]}",
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: isDark
+                                ? Colors.white38
+                                : theme.disabledColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 16,
+                          height: h.clamp(6.0, 100.0),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.primary.withOpacity(0.3),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          labels[index],
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: isDark
+                                ? Colors.white24
+                                : theme.disabledColor,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngagementIntensity(ThemeData theme, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Peak Engagement",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+          ),
+          const SizedBox(height: 24),
+          FutureBuilder<QuerySnapshot>(
+            future: _studentsFuture,
+            builder: (context, studentSnapshot) {
+              final Map<String, String> studentMap = {};
+              if (studentSnapshot.hasData) {
+                for (var doc in studentSnapshot.data!.docs) {
+                  studentMap[doc.id] = (doc.data() as Map)['department'] ?? '';
+                }
+              }
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('attendance')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  int morning = 0; // 0-12
+                  int afternoon = 0; // 12-17
+                  int evening = 0; // 17-24
+
+                  if (snapshot.hasData) {
+                    for (var doc in snapshot.data!.docs) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      // Handle pending writes (null timestamp) as "now"
+                      final ts = data['timestamp'] as Timestamp?;
+                      final checkTime = (ts ?? Timestamp.now()).toDate();
+
+                      // Resolve Dept
+                      String dept = (data['studentDepartment'] ?? '')
+                          .toString()
+                          .trim();
+                      if (dept.isEmpty)
+                        dept = studentMap[data['studentId']] ?? '';
+
+                      if (_selectedDept == 'All Departments' ||
+                          dept == _selectedDept) {
+                        int h = checkTime.hour;
+                        if (h < 12)
+                          morning++;
+                        else if (h < 17)
+                          afternoon++;
+                        else
+                          evening++;
+                      }
+                    }
+                  }
+
+                  int total = morning + afternoon + evening;
+                  return Column(
+                    children: [
+                      _buildLinearBar(
+                        "AM Intensity",
+                        morning,
+                        total,
+                        Colors.blueAccent,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildLinearBar(
+                        "Day Intensity",
+                        afternoon,
+                        total,
+                        Colors.orangeAccent,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildLinearBar(
+                        "PM Intensity",
+                        evening,
+                        total,
+                        Colors.purpleAccent,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinearBar(String label, int val, int total, Color color) {
+    double factor = total == 0 ? 0.0 : (val / total).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              "$val logs",
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 6,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: factor,
+            child: Container(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

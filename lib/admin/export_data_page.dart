@@ -1,9 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
-// Hiding Border from excel package to avoid conflict with Flutter's Border class
 import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -16,6 +18,18 @@ class ExportDataPage extends StatefulWidget {
 
 class _ExportDataPageState extends State<ExportDataPage> {
   bool _isExporting = false;
+  DateTimeRange? _selectedDateRange;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the current day
+    final now = DateTime.now();
+    _selectedDateRange = DateTimeRange(
+      start: DateTime(now.year, now.month, now.day),
+      end: DateTime(now.year, now.month, now.day, 23, 59, 59),
+    );
+  }
 
   /// Hardcoded headers for consistent data structure
   final List<String> _exportHeaders = [
@@ -27,7 +41,46 @@ class _ExportDataPageState extends State<ExportDataPage> {
     'Marked By',
   ];
 
-  /// Strictly null-safe data preparation with optimized lookup
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDateRange: _selectedDateRange,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              surface: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        // Ensure the end date covers the full day
+        _selectedDateRange = DateTimeRange(
+          start: picked.start,
+          end: DateTime(
+            picked.end.year,
+            picked.end.month,
+            picked.end.day,
+            23,
+            59,
+            59,
+          ),
+        );
+      });
+    }
+  }
+
   Future<List<List<String>>> _prepareDataAsList() async {
     try {
       final results = await Future.wait([
@@ -38,7 +91,6 @@ class _ExportDataPageState extends State<ExportDataPage> {
       final attendanceSnapshot = results[0] as QuerySnapshot;
       final studentsSnapshot = results[1] as QuerySnapshot;
 
-      // Build student lookup map
       final Map<String, Map<String, dynamic>> studentLookup = {
         for (var doc in studentsSnapshot.docs)
           doc.id: doc.data() as Map<String, dynamic>,
@@ -50,17 +102,24 @@ class _ExportDataPageState extends State<ExportDataPage> {
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) continue;
 
+        final dynamic rawTs = data['timestamp'];
+        if (rawTs is! Timestamp) continue;
+
+        final DateTime attendanceDate = rawTs.toDate();
+
+        // Apply Date Range Filter in Memory (Rule 2)
+        if (_selectedDateRange != null) {
+          if (attendanceDate.isBefore(_selectedDateRange!.start) ||
+              attendanceDate.isAfter(_selectedDateRange!.end)) {
+            continue;
+          }
+        }
+
         final String studentId = data['studentId']?.toString() ?? 'N/A';
         final student = studentLookup[studentId];
 
-        String formattedDate = 'N/A';
-        final dynamic rawTs = data['timestamp'];
-        if (rawTs is Timestamp) {
-          formattedDate = rawTs.toDate().toString().split('.')[0];
-        }
-
         tableRows.add([
-          formattedDate,
+          DateFormat('yyyy-MM-dd HH:mm').format(attendanceDate),
           studentId,
           student?['name']?.toString() ?? 'Unknown',
           student?['department']?.toString() ?? 'Unknown',
@@ -68,9 +127,13 @@ class _ExportDataPageState extends State<ExportDataPage> {
           data['markedBy']?.toString() ?? 'System',
         ]);
       }
+
+      // Sort by timestamp descending
+      tableRows.sort((a, b) => b[0].compareTo(a[0]));
+
       return tableRows;
     } catch (e) {
-      debugPrint("Export Error: $e");
+      debugPrint("Export Data Prep Error: $e");
       return [];
     }
   }
@@ -82,18 +145,20 @@ class _ExportDataPageState extends State<ExportDataPage> {
       final List<List<String>> tableData = await _prepareDataAsList();
 
       if (tableData.isEmpty) {
-        throw Exception("No attendance records found to export.");
+        throw Exception("No records found for the selected date range.");
       }
 
       final directory = await getTemporaryDirectory();
+      final String dateLabel = DateFormat(
+        'MMMdd',
+      ).format(_selectedDateRange!.start);
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = "LatePass_Export_$timestamp";
+      final String fileName = "LatePass_Attendance_${dateLabel}_$timestamp";
       File? file;
 
       if (type == 'EXCEL') {
         final excel = Excel.createExcel();
-        const sheetName = 'Attendance';
-        final sheet = excel[sheetName];
+        final sheet = excel['Attendance'];
         excel.delete('Sheet1');
 
         sheet.appendRow(_exportHeaders.map((e) => TextCellValue(e)).toList());
@@ -102,9 +167,7 @@ class _ExportDataPageState extends State<ExportDataPage> {
         }
 
         final fileBytes = excel.save();
-        if (fileBytes == null) {
-          throw Exception("Failed to generate Excel file.");
-        }
+        if (fileBytes == null) throw Exception("Excel generation failed.");
 
         file = File('${directory.path}/$fileName.xlsx');
         await file.writeAsBytes(fileBytes);
@@ -115,24 +178,32 @@ class _ExportDataPageState extends State<ExportDataPage> {
         await file.writeAsString(csvData);
       } else if (type == 'TXT') {
         file = File('${directory.path}/$fileName.txt');
+        final buffer = StringBuffer();
+        buffer.writeln("LATEPASS ATTENDANCE REPORT");
+        buffer.writeln(
+          "Range: ${DateFormat('yMMMd').format(_selectedDateRange!.start)} - ${DateFormat('yMMMd').format(_selectedDateRange!.end)}",
+        );
+        buffer.writeln(
+          "Generated: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}",
+        );
+        buffer.writeln("=" * 60);
+
         final List<List<String>> textRows = [_exportHeaders, ...tableData];
-        String textData = const ListToCsvConverter(
+        String formattedData = const ListToCsvConverter(
           fieldDelimiter: '\t',
           eol: '\n',
         ).convert(textRows);
+        buffer.write(formattedData);
 
-        final buffer = StringBuffer();
-        buffer.writeln("LatePass Attendance Report");
-        buffer.writeln("Generated: ${DateTime.now().toString().split('.')[0]}");
-        buffer.writeln("=" * 40);
-        buffer.write(textData);
         await file.writeAsString(buffer.toString());
       }
 
       if (file != null && await file.exists()) {
-        await Share.shareXFiles([
-          XFile(file.path),
-        ], text: 'LatePass Attendance Export');
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text:
+              'Attendance Report (${DateFormat('yMMMd').format(_selectedDateRange!.start)})',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -151,16 +222,27 @@ class _ExportDataPageState extends State<ExportDataPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(title: const Text('Export Center'), centerTitle: true),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Export Center',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
-          _buildHeader(theme),
+          _buildHeader(theme, isDark),
           Expanded(
             child: _isExporting
-                ? _buildLoadingState(theme)
+                ? _buildLoadingState(theme, isDark)
                 : ListView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -169,26 +251,29 @@ class _ExportDataPageState extends State<ExportDataPage> {
                     children: [
                       _buildExportOption(
                         theme,
+                        isDark,
                         title: "Excel Spreadsheet",
-                        subtitle: "XLSX format • Best for analysis",
+                        subtitle: "XLSX format • Best for deep analysis",
                         icon: Icons.table_view_rounded,
-                        color: Colors.green,
+                        color: Colors.greenAccent,
                         onTap: () => _handleExport('EXCEL'),
                       ),
                       _buildExportOption(
                         theme,
+                        isDark,
                         title: "CSV Document",
-                        subtitle: "Comma Separated • Universal support",
+                        subtitle: "Universal format • Light and fast",
                         icon: Icons.analytics_outlined,
-                        color: Colors.teal,
+                        color: Colors.tealAccent,
                         onTap: () => _handleExport('CSV'),
                       ),
                       _buildExportOption(
                         theme,
-                        title: "Text File",
-                        subtitle: "TXT format • Simple plain text",
+                        isDark,
+                        title: "Plain Text",
+                        subtitle: "TXT format • Simple readable log",
                         icon: Icons.article_outlined,
-                        color: Colors.blueGrey,
+                        color: Colors.blueAccent,
                         onTap: () => _handleExport('TXT'),
                       ),
                     ],
@@ -199,48 +284,115 @@ class _ExportDataPageState extends State<ExportDataPage> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
+  Widget _buildHeader(ThemeData theme, bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
-        ),
+        color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "DATA MANAGEMENT",
+            "FILTER & EXPORT",
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.primary,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            "Export Records",
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Download and share attendance logs in your preferred format.",
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.disabledColor,
-            ),
-          ),
+          const SizedBox(height: 16),
+          _buildDateRangeSelector(theme, isDark),
         ],
       ),
     );
   }
 
+  Widget _buildDateRangeSelector(ThemeData theme, bool isDark) {
+    final start = DateFormat('MMM dd').format(_selectedDateRange!.start);
+    final end = DateFormat('MMM dd').format(_selectedDateRange!.end);
+
+    return InkWell(
+      onTap: _selectDateRange,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.03)
+              : theme.colorScheme.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.date_range_rounded,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Selected Range",
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isDark ? Colors.white38 : theme.disabledColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    "$start - $end",
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                "Change",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildExportOption(
-    ThemeData theme, {
+    ThemeData theme,
+    bool isDark, {
     required String title,
     required String subtitle,
     required IconData icon,
@@ -251,18 +403,21 @@ class _ExportDataPageState extends State<ExportDataPage> {
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.dividerColor.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color: theme.dividerColor.withOpacity(isDark ? 0.08 : 0.1),
+        ),
       ),
+      color: isDark ? const Color(0xFF1E293B) : Colors.white,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   shape: BoxShape.circle,
@@ -277,15 +432,27 @@ class _ExportDataPageState extends State<ExportDataPage> {
                     Text(
                       title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white38 : theme.disabledColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: theme.disabledColor),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: isDark
+                    ? Colors.white10
+                    : theme.disabledColor.withOpacity(0.3),
+                size: 16,
+              ),
             ],
           ),
         ),
@@ -293,23 +460,26 @@ class _ExportDataPageState extends State<ExportDataPage> {
     );
   }
 
-  Widget _buildLoadingState(ThemeData theme) {
+  Widget _buildLoadingState(ThemeData theme, bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
+          const CircularProgressIndicator(strokeWidth: 3),
+          const SizedBox(height: 32),
           Text(
-            'Preparing your file...',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            'Compiling Records...',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : Colors.black87,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Fetching records from the cloud',
-            style: theme.textTheme.bodySmall,
+            'Fetching data from the secure registry',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isDark ? Colors.white38 : theme.disabledColor,
+            ),
           ),
         ],
       ),

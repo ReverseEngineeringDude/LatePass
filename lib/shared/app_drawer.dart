@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'dart:convert';
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/shared/biometric_auth_service.dart';
@@ -26,6 +26,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
 
   late AnimationController _listController;
   late AnimationController _headerController;
+  late AnimationController _backgroundController;
 
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentPurple = Color(0xFF7C3AED);
@@ -47,6 +48,11 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 1000),
     );
 
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat(reverse: true);
+
     _headerController.forward();
     _listController.forward();
   }
@@ -55,6 +61,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   void dispose() {
     _headerController.dispose();
     _listController.dispose();
+    _backgroundController.dispose();
     super.dispose();
   }
 
@@ -104,97 +111,150 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     final isDark = theme.brightness == Brightness.dark;
 
     return Drawer(
-      backgroundColor: isDark ? const Color(0xFF0F1115) : Colors.white,
+      backgroundColor: Colors.transparent, // Required for glassmorphism
       elevation: 0,
       width: MediaQuery.of(context).size.width * 0.85,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(40),
-          bottomRight: Radius.circular(40),
-        ),
-      ),
-      child: Column(
+      child: Stack(
         children: [
-          _buildAnimatedHeader(theme, isDark),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.02)
-                    : Colors.grey.shade50,
-              ),
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 20,
+          // Background Glass effect
+          _buildGlassBackdrop(isDark),
+
+          // Animated Blobs behind the drawer content
+          _buildAnimatedBlobs(isDark),
+
+          Column(
+            children: [
+              _buildAnimatedHeader(theme, isDark),
+              Expanded(
+                child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 20,
+                  ),
+                  children: [
+                    _buildAnimatedItem(
+                      index: 0,
+                      child: _buildDrawerItem(
+                        icon: Icons.dashboard_rounded,
+                        label: 'Dashboard',
+                        onTap: () => Navigator.pop(context),
+                        isActive: true,
+                        isDark: isDark,
+                      ),
+                    ),
+                    _buildAnimatedItem(
+                      index: 1,
+                      child: Consumer<ThemeNotifier>(
+                        builder: (context, themeNotifier, child) {
+                          return _buildDrawerItem(
+                            icon: themeNotifier.themeMode == ThemeMode.dark
+                                ? Icons.light_mode_rounded
+                                : Icons.dark_mode_rounded,
+                            label: 'Appearance',
+                            isDark: isDark,
+                            onTap: () => themeNotifier.toggleTheme(),
+                          );
+                        },
+                      ),
+                    ),
+                    _buildAnimatedItem(
+                      index: 2,
+                      child: Consumer<ThemeNotifier>(
+                        builder: (context, themeNotifier, child) {
+                          return _buildSwitchDrawerItem(
+                            icon: Icons.fingerprint,
+                            label: 'Biometric Lock',
+                            value: themeNotifier.isBiometricAuthEnabled,
+                            isDark: isDark,
+                            onChanged: (value) async {
+                              final isAuthenticated =
+                                  await _biometricAuthService.authenticate();
+                              if (isAuthenticated) {
+                                themeNotifier.toggleBiometricAuth();
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 10,
+                      ),
+                      child: Divider(
+                        thickness: 1,
+                        color: isDark
+                            ? Colors.white10
+                            : Colors.black.withOpacity(0.05),
+                      ),
+                    ),
+                    _buildAnimatedItem(
+                      index: 3,
+                      child: _buildDrawerItem(
+                        icon: Icons.logout_rounded,
+                        label: 'Logout',
+                        color: Colors.redAccent,
+                        isDark: isDark,
+                        onTap: () => _showLogoutDialog(context),
+                      ),
+                    ),
+                  ],
                 ),
-                children: [
-                  _buildAnimatedItem(
-                    index: 0,
-                    child: _buildDrawerItem(
-                      icon: Icons.dashboard_rounded,
-                      label: 'Dashboard',
-                      onTap: () => Navigator.pop(context),
-                      isActive: true,
-                    ),
-                  ),
-                  _buildAnimatedItem(
-                    index: 1,
-                    child: Consumer<ThemeNotifier>(
-                      builder: (context, themeNotifier, child) {
-                        return _buildDrawerItem(
-                          icon: themeNotifier.themeMode == ThemeMode.dark
-                              ? Icons.light_mode_rounded
-                              : Icons.dark_mode_rounded,
-                          label: 'Appearance',
-                          onTap: () => themeNotifier.toggleTheme(),
-                        );
-                      },
-                    ),
-                  ),
-                  _buildAnimatedItem(
-                    index: 2,
-                    child: Consumer<ThemeNotifier>(
-                      builder: (context, themeNotifier, child) {
-                        return _buildSwitchDrawerItem(
-                          icon: Icons.fingerprint,
-                          label: 'Biometric Lock',
-                          value: themeNotifier.isBiometricAuthEnabled,
-                          onChanged: (value) async {
-                            final isAuthenticated =
-                                await _biometricAuthService.authenticate();
-                            if (isAuthenticated) {
-                              themeNotifier.toggleBiometricAuth();
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-                    child: Divider(
-                      thickness: 1,
-                      color: Color.fromRGBO(0, 0, 0, 0.1),
-                    ),
-                  ),
-                  _buildAnimatedItem(
-                    index: 3,
-                    child: _buildDrawerItem(
-                      icon: Icons.logout_rounded,
-                      label: 'Logout',
-                      color: Colors.redAccent,
-                      onTap: () => _showLogoutDialog(context),
-                    ),
-                  ),
-                ],
+              ),
+              _buildFooter(isDark),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassBackdrop(bool isDark) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topRight: Radius.circular(40),
+        bottomRight: Radius.circular(40),
+      ),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF0F1115).withOpacity(0.8)
+                : Colors.white.withOpacity(0.85),
+            border: Border(
+              right: BorderSide(
+                color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
               ),
             ),
           ),
-          _buildFooter(isDark),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildAnimatedBlobs(bool isDark) {
+    return AnimatedBuilder(
+      animation: _backgroundController,
+      builder: (context, child) {
+        final val = _backgroundController.value;
+        return Stack(
+          children: [
+            Positioned(
+              top: 100 + (50 * val),
+              right: -50,
+              child: _Blob(color: primaryBlue.withOpacity(0.1), size: 200),
+            ),
+            Positioned(
+              bottom: 100 - (50 * val),
+              left: -30,
+              child: _Blob(color: accentPurple.withOpacity(0.08), size: 180),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -318,14 +378,16 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
 
   Widget _buildAnimatedItem({required int index, required Widget child}) {
     final start = (index * 0.1).clamp(0.0, 1.0);
-    final end = (start + 0.6).clamp(0.0, 1.0);
-
     return AnimatedBuilder(
       animation: _listController,
       builder: (context, child) {
         final curve = CurvedAnimation(
           parent: _listController,
-          curve: Interval(start, end, curve: Curves.easeOutQuart),
+          curve: Interval(
+            start,
+            (start + 0.6).clamp(0.0, 1.0),
+            curve: Curves.easeOutQuart,
+          ),
         );
         return Opacity(
           opacity: curve.value,
@@ -345,34 +407,45 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     required VoidCallback onTap,
     Color? color,
     bool isActive = false,
+    required bool isDark,
   }) {
     final theme = Theme.of(context);
     final baseColor =
-        color ?? (isActive ? primaryBlue : theme.colorScheme.onSurface);
+        color ??
+        (isActive
+            ? primaryBlue
+            : (isDark ? Colors.white70 : theme.colorScheme.onSurface));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
+        color: isActive
+            ? primaryBlue.withOpacity(isDark ? 0.15 : 0.1)
+            : (isDark
+                  ? Colors.white.withOpacity(0.03)
+                  : Colors.black.withOpacity(0.02)),
         borderRadius: BorderRadius.circular(20),
-        color: isActive ? primaryBlue.withOpacity(0.1) : Colors.transparent,
+        border: Border.all(
+          color: isActive ? primaryBlue.withOpacity(0.2) : Colors.transparent,
+        ),
       ),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        leading: Icon(icon, color: baseColor, size: 26),
+        leading: Icon(icon, color: baseColor, size: 24),
         title: Text(
           label,
           style: TextStyle(
             color: baseColor,
-            fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 16,
+            fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
+            fontSize: 15,
           ),
         ),
         trailing: isActive
             ? const Icon(
                 Icons.arrow_forward_ios_rounded,
-                size: 14,
+                size: 12,
                 color: primaryBlue,
               )
             : null,
@@ -386,25 +459,30 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     required bool value,
     required ValueChanged<bool> onChanged,
     Color? color,
+    required bool isDark,
   }) {
     final theme = Theme.of(context);
-    final baseColor = color ?? theme.colorScheme.onSurface;
+    final baseColor =
+        color ?? (isDark ? Colors.white70 : theme.colorScheme.onSurface);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.03)
+            : Colors.black.withOpacity(0.02),
         borderRadius: BorderRadius.circular(20),
       ),
       child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        secondary: Icon(icon, color: baseColor, size: 26),
+        secondary: Icon(icon, color: baseColor, size: 24),
         title: Text(
           label,
           style: TextStyle(
             color: baseColor,
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: 15,
           ),
         ),
         value: value,
@@ -437,13 +515,13 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
             children: [
               const Text(
                 'LatePass System',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               Text(
                 'Version 1.0.0 Stable',
                 style: TextStyle(
-                  color: isDark ? Colors.white38 : Colors.grey.shade500,
-                  fontSize: 12,
+                  color: isDark ? Colors.white24 : Colors.grey.shade500,
+                  fontSize: 11,
                 ),
               ),
             ],
@@ -458,13 +536,14 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
       context: context,
       builder: (BuildContext context) {
         return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: AlertDialog(
             backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF1A1C21)
-                : Colors.white,
+                ? const Color(0xFF1A1C21).withOpacity(0.9)
+                : Colors.white.withOpacity(0.9),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
+              side: BorderSide(color: Colors.white10),
             ),
             title: const Row(
               children: [
@@ -518,6 +597,23 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
           ),
         );
       },
+    );
+  }
+}
+
+class _Blob extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _Blob({required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color, blurRadius: 40, spreadRadius: 20)],
+      ),
     );
   }
 }

@@ -14,7 +14,9 @@ class ThemeNotifier with ChangeNotifier {
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
 
   void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    _themeMode = _themeMode == ThemeMode.light
+        ? ThemeMode.dark
+        : ThemeMode.light;
     _saveTheme();
     notifyListeners();
   }
@@ -25,24 +27,26 @@ class ThemeNotifier with ChangeNotifier {
     notifyListeners();
   }
 
-  _loadTheme() async {
+  Future<void> _loadTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    _themeMode = (prefs.getBool('isDarkMode') ?? false) ? ThemeMode.dark : ThemeMode.light;
+    _themeMode = (prefs.getBool('isDarkMode') ?? false)
+        ? ThemeMode.dark
+        : ThemeMode.light;
     notifyListeners();
   }
 
-  _saveTheme() async {
+  Future<void> _saveTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setBool('isDarkMode', _themeMode == ThemeMode.dark);
   }
 
-  _loadBiometricAuth() async {
+  Future<void> _loadBiometricAuth() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     _isBiometricAuthEnabled = prefs.getBool('isBiometricAuthEnabled') ?? false;
     notifyListeners();
   }
 
-  _saveBiometricAuth() async {
+  Future<void> _saveBiometricAuth() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isBiometricAuthEnabled', _isBiometricAuthEnabled);
   }

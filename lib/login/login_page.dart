@@ -174,12 +174,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             .where('email', isEqualTo: email)
             .limit(1)
             .get();
-        if (adminQuery.docs.isEmpty)
+        if (adminQuery.docs.isEmpty) {
           throw 'Authorization Failed: This email is not registered as an admin.';
+        }
         final adminData = adminQuery.docs.first;
         currentAdmin = Admin.fromFirestore(adminData);
-        if (currentAdmin.password != password)
+        if (currentAdmin.password != password) {
           throw 'Access Denied: Incorrect password for this admin account.';
+        }
       }
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       final prefs = await SharedPreferences.getInstance();
