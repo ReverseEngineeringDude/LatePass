@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:latepass/shared/biometric_auth_service.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latepass/shared/theme_notifier.dart';
@@ -28,6 +29,8 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
 
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentPurple = Color(0xFF7C3AED);
+
+  final BiometricAuthService _biometricAuthService = BiometricAuthService();
 
   @override
   void initState() {
@@ -150,6 +153,25 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                       },
                     ),
                   ),
+                  _buildAnimatedItem(
+                    index: 2,
+                    child: Consumer<ThemeNotifier>(
+                      builder: (context, themeNotifier, child) {
+                        return _buildSwitchDrawerItem(
+                          icon: Icons.fingerprint,
+                          label: 'Biometric Lock',
+                          value: themeNotifier.isBiometricAuthEnabled,
+                          onChanged: (value) async {
+                            final isAuthenticated =
+                                await _biometricAuthService.authenticate();
+                            if (isAuthenticated) {
+                              themeNotifier.toggleBiometricAuth();
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
                     child: Divider(
@@ -158,7 +180,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                     ),
                   ),
                   _buildAnimatedItem(
-                    index: 2,
+                    index: 3,
                     child: _buildDrawerItem(
                       icon: Icons.logout_rounded,
                       label: 'Logout',
@@ -354,6 +376,40 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                 color: primaryBlue,
               )
             : null,
+      ),
+    );
+  }
+
+  Widget _buildSwitchDrawerItem({
+    required IconData icon,
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    Color? color,
+  }) {
+    final theme = Theme.of(context);
+    final baseColor = color ?? theme.colorScheme.onSurface;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        secondary: Icon(icon, color: baseColor, size: 26),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: baseColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        value: value,
+        onChanged: onChanged,
+        activeColor: primaryBlue,
       ),
     );
   }

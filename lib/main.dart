@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latepass/admin/admin_page.dart';
 import 'package:latepass/firebase_options.dart';
 import 'package:latepass/login/login_page.dart';
+import 'package:latepass/shared/biometric_auth_service.dart';
 import 'package:latepass/student/student_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/superadmin/superadmin_page.dart';
@@ -76,7 +78,7 @@ class MyApp extends StatelessWidget {
           ),
           themeMode: themeNotifier.themeMode,
 
-          home: const AuthWrapper(),
+          home: AuthWrapper(key: UniqueKey()),
           routes: {
             '/login': (context) => const LoginPage(admins: []),
             '/admin': (context) => AdminPage(),
@@ -94,15 +96,48 @@ class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  _AuthWrapperState createState() => _AuthWrapperState();
+  AuthWrapperState createState() => AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class AuthWrapperState extends State<AuthWrapper> {
+  final BiometricAuthService _biometricAuthService = BiometricAuthService();
   List<Admin> admins = [];
+  bool _isAuthenticated = false;
+  bool _isAuthCheckComplete = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isAuthCheckComplete) {
+      _checkBiometricAuth();
+    }
+  }
+
+  Future<void> _checkBiometricAuth() async {
+    final themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
+    if (themeNotifier.isBiometricAuthEnabled) {
+      await _authenticate();
+    } else {
+      setState(() {
+        _isAuthenticated = true;
+      });
+    }
+    setState(() {
+      _isAuthCheckComplete = true;
+    });
+  }
+
+  Future<void> _authenticate() async {
+    final isAuthenticated = await _biometricAuthService.authenticate();
+    if (mounted) {
+      if (isAuthenticated) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+      } else {
+        SystemNavigator.pop();
+      }
+    }
   }
 
   /// Determines the initial screen based on authentication state and role
@@ -152,6 +187,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isAuthenticated) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: MyApp.primaryBlue),
+        ),
+      );
+    }
     return FutureBuilder<Widget>(
       future: _getInitialPage(),
       builder: (context, snapshot) {
