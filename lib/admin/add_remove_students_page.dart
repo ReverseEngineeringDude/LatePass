@@ -427,12 +427,14 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _firestore.collection('students').snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError)
+                    if (snapshot.hasError) {
                       return const Center(
                         child: Text("Error fetching records"),
                       );
-                    if (!snapshot.hasData)
+                    }
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
 
                     final allStudents = snapshot.data!.docs
                         .map((doc) => Student.fromFirestore(doc))
@@ -457,8 +459,9 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                       return matchesSearch && matchesDept;
                     }).toList();
 
-                    if (_currentFilteredStudents.isEmpty)
+                    if (_currentFilteredStudents.isEmpty) {
                       return _buildEmptyState(theme);
+                    }
 
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(
@@ -573,8 +576,9 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
             color: isDark ? Colors.white : theme.colorScheme.onSurface,
           ),
           onChanged: (String? newValue) {
-            if (newValue != null)
+            if (newValue != null) {
               setState(() => _selectedDeptFilter = newValue);
+            }
           },
           items: _departments
               .map<DropdownMenuItem<String>>(
@@ -611,12 +615,13 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
       child: ListTile(
         onLongPress: () => setState(() => _selectedIds.add(student.id)),
         onTap: () {
-          if (_selectedIds.isNotEmpty)
+          if (_selectedIds.isNotEmpty) {
             setState(
               () => isSelected
                   ? _selectedIds.remove(student.id)
                   : _selectedIds.add(student.id),
             );
+          }
         },
         leading: CircleAvatar(
           backgroundColor: isSelected

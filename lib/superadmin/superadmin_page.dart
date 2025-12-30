@@ -165,7 +165,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
         ),
       },
       {
-        "title": "Manage Registry",
+        "title": "Manage Students",
         "icon": Icons.people_alt_rounded,
         "color": Colors.pinkAccent,
         "page": const AddRemoveStudentsPage(),

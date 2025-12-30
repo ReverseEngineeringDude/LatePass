@@ -223,7 +223,7 @@ class _ViewAttendancePageState extends State<ViewAttendancePage> {
                       String adminName =
                           (adminSnapshot.hasData && adminSnapshot.data!.exists)
                           ? (adminSnapshot.data!['name'] ?? "Super Admin")
-                          : "Processing...";
+                          : "System admin";
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,

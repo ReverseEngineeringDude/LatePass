@@ -230,10 +230,12 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
                   .collection('students')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError)
+                if (snapshot.hasError) {
                   return const Center(child: Text('Error fetching data'));
-                if (!snapshot.hasData)
+                }
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final students = snapshot.data!.docs
                     .map((doc) => Student.fromFirestore(doc))
@@ -363,8 +365,9 @@ class _ReportStudentPageState extends State<ReportStudentPage> {
             color: isDark ? Colors.white : theme.colorScheme.onSurface,
           ),
           onChanged: (String? newValue) {
-            if (newValue != null)
+            if (newValue != null) {
               setState(() => _selectedDeptFilter = newValue);
+            }
           },
           items: _departments.map<DropdownMenuItem<String>>((String value) {
             return DropdownMenuItem<String>(

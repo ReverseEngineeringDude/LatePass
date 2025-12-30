@@ -1,3 +1,7 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
+import 'dart:convert';
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/add_remove_students_page.dart';
@@ -21,8 +25,34 @@ class AdminPage extends StatefulWidget {
   State<AdminPage> createState() => _AdminPageState();
 }
 
-class _AdminPageState extends State<AdminPage> {
-  // Handles the scanning logic for QR/ID codes
+class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
+  late AnimationController _entryController;
+  late AnimationController _backgroundController;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    )..repeat(reverse: true);
+
+    _entryController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    _backgroundController.dispose();
+    super.dispose();
+  }
+
+  // --- Logic (Unchanged from your version) ---
+
   Future<bool> _handleScan(String value) async {
     try {
       final studentDoc = await FirebaseFirestore.instance
@@ -37,7 +67,6 @@ class _AdminPageState extends State<AdminPage> {
         final startOfDay = DateTime(now.year, now.month, now.day);
         final endOfDay = startOfDay.add(const Duration(days: 1));
 
-        // Check if student has already been marked today (Filtering in memory for reliability)
         final attendanceQuery = await FirebaseFirestore.instance
             .collection('attendance')
             .get();
@@ -54,11 +83,9 @@ class _AdminPageState extends State<AdminPage> {
         });
 
         if (isAlreadyMarked) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Attendance already marked for today'),
-              behavior: SnackBarBehavior.floating,
-            ),
+          _showStatusSnackBar(
+            'Attendance already marked for today',
+            Colors.orange,
           );
           return false;
         }
@@ -66,7 +93,6 @@ class _AdminPageState extends State<AdminPage> {
         final student = Student.fromFirestore(studentDoc);
         final adminId = FirebaseAuth.instance.currentUser?.uid ?? 'system';
 
-        // Add to attendance log including department metadata for high-perf filtering
         await FirebaseFirestore.instance.collection('attendance').add({
           'studentId': student.id,
           'studentDepartment': student.department,
@@ -76,32 +102,65 @@ class _AdminPageState extends State<AdminPage> {
 
         if (!mounted) return false;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${student.name} marked as present'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showStatusSnackBar('${student.name} marked as present', Colors.green);
         return true;
       } else {
         throw Exception('Student not found');
       }
     } catch (e) {
       if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Student ID not found in database'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showStatusSnackBar('Student ID not found in database', Colors.redAccent);
       return false;
     }
   }
 
+  void _showStatusSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.all(20),
+      ),
+    );
+  }
+
   void _navigateTo(Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+  }
+
+  // --- Animation Helper ---
+
+  Widget _animate({
+    required Widget child,
+    required double delay,
+    Offset slideOffset = const Offset(0, 30),
+  }) {
+    return AnimatedBuilder(
+      animation: _entryController,
+      builder: (context, child) {
+        final curve = CurvedAnimation(
+          parent: _entryController,
+          curve: Interval(
+            delay,
+            (delay + 0.5).clamp(0.0, 1.0),
+            curve: Curves.easeOutQuart,
+          ),
+        );
+        return Opacity(
+          opacity: curve.value,
+          child: Transform.translate(
+            offset: slideOffset * (1 - curve.value),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
   }
 
   @override
@@ -118,19 +177,19 @@ class _AdminPageState extends State<AdminPage> {
       },
       {
         "title": "Manual Enter",
-        "icon": Icons.keyboard_alt_outlined,
-        "color": Colors.greenAccent,
+        "icon": Icons.keyboard_alt_rounded,
+        "color": Colors.amberAccent,
         "page": const ManualEnterPage(),
       },
       {
         "title": "Export Logs",
         "icon": Icons.ios_share_rounded,
-        "color": Colors.orangeAccent,
+        "color": Colors.orange,
         "page": const ExportDataPage(),
       },
       {
         "title": "Report Incident",
-        "icon": Icons.report_problem_rounded,
+        "icon": Icons.report_gmailerrorred_rounded,
         "color": Colors.redAccent,
         "page": ReportStudentPage(
           isSuperAdmin: false,
@@ -139,8 +198,8 @@ class _AdminPageState extends State<AdminPage> {
       },
       {
         "title": "View Reports",
-        "icon": Icons.analytics_rounded,
-        "color": Colors.purpleAccent,
+        "icon": Icons.bar_chart_rounded,
+        "color": Colors.indigoAccent,
         "page": ShowReportsPage(
           isFaculty: widget.admin?.isFaculty ?? false,
           department: widget.admin?.department ?? "",
@@ -148,9 +207,9 @@ class _AdminPageState extends State<AdminPage> {
         ),
       },
       {
-        "title": "Manage Registry",
-        "icon": Icons.people_alt_rounded,
-        "color": Colors.pinkAccent,
+        "title": "Registry",
+        "icon": Icons.group_add_rounded,
+        "color": Colors.pink,
         "page": AddRemoveStudentsPage(
           isSuperAdmin: false,
           initialDepartment: widget.admin?.department,
@@ -158,187 +217,233 @@ class _AdminPageState extends State<AdminPage> {
       },
       {
         "title": "Today's Logs",
-        "icon": Icons.today_rounded,
-        "color": Colors.cyanAccent,
+        "icon": Icons.event_note_rounded,
+        "color": Colors.cyan,
         "page": const TodaysAttendancePage(),
       },
     ];
 
     return Scaffold(
       backgroundColor: isDark
-          ? const Color(0xFF0F172A)
-          : theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          "Dashboard",
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: isDark ? Colors.white : theme.colorScheme.onSurface,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('reports')
-                .snapshots(),
-            builder: (context, snapshot) {
-              int reportCount = 0;
-              if (snapshot.hasData) {
-                final String adminDept = (widget.admin?.department ?? '')
-                    .trim()
-                    .toLowerCase();
-
-                // Filter reports to match the admin's department.
-                reportCount = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final String studentDept = (data['studentDepartment'] ?? '')
-                      .toString()
-                      .trim()
-                      .toLowerCase();
-                  return adminDept.isEmpty || studentDept == adminDept;
-                }).length;
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0, top: 8.0),
-                child: IconButton(
-                  icon: Badge(
-                    label: Text(reportCount.toString()),
-                    isLabelVisible: reportCount > 0,
-                    backgroundColor: Colors.red,
-                    child: Icon(
-                      Icons.notifications_none_rounded,
-                      color: isDark
-                          ? Colors.white70
-                          : theme.colorScheme.primary,
-                    ),
-                  ),
-                  onPressed: () {
-                    _navigateTo(
-                      ShowReportsPage(
-                        isFaculty: widget.admin?.isFaculty ?? false,
-                        department: widget.admin?.department ?? "",
-                        isSuperAdmin: false,
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+          ? const Color(0xFF0F1115)
+          : const Color(0xFFF8FAFC),
       drawer: const AppDrawer(),
       body: Stack(
         children: [
-          if (isDark) ...[
-            Positioned(
-              top: -100,
-              right: -100,
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.colorScheme.primary.withOpacity(0.08),
-                      theme.colorScheme.primary.withOpacity(0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -50,
-              left: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.purple.withOpacity(0.05),
-                      Colors.purple.withOpacity(0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-
-          SingleChildScrollView(
+          _buildAnimatedBackground(theme, isDark),
+          CustomScrollView(
             physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                _buildHeader(theme, isDark),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        "MANAGEMENT TOOLS",
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: isDark
-                              ? Colors.white38
-                              : theme.colorScheme.primary,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.w900,
+            slivers: [
+              _buildModernAppBar(theme, isDark),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _animate(
+                      delay: 0.1,
+                      slideOffset: const Offset(0, -20),
+                      child: _buildHeader(theme, isDark),
+                    ),
+                    _animate(
+                      delay: 0.3,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 30, 24, 15),
+                        child: Row(
+                          children: [
+                            Text(
+                              "MANAGEMENT TOOLS",
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                letterSpacing: 2.0,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: menuItems.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 18,
+                            mainAxisSpacing: 18,
+                            childAspectRatio: 1.05,
+                          ),
+                      itemBuilder: (context, index) {
+                        final item = menuItems[index];
+                        return _animate(
+                          delay: 0.3 + (index * 0.05),
+                          child: _buildMenuCard(
+                            theme,
+                            isDark,
+                            title: item["title"],
+                            icon: item["icon"],
+                            color: item["color"],
+                            onTap: () => _navigateTo(item["page"]),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 50),
+                  ],
                 ),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: menuItems.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.1,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = menuItems[index];
-                    return _buildMenuCard(
-                      theme,
-                      isDark,
-                      title: item["title"],
-                      icon: item["icon"],
-                      color: item["color"],
-                      onTap: () => _navigateTo(item["page"]),
-                    );
-                  },
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildAnimatedBackground(ThemeData theme, bool isDark) {
+    return AnimatedBuilder(
+      animation: _backgroundController,
+      builder: (context, child) {
+        final val = _backgroundController.value;
+        return Stack(
+          children: [
+            Positioned(
+              top: -100 + (30 * val),
+              right: -50 - (20 * val),
+              child: _BlurredCircle(
+                color: theme.colorScheme.primary.withOpacity(
+                  isDark ? 0.15 : 0.08,
+                ),
+                size: 350,
+              ),
+            ),
+            Positioned(
+              bottom: 100 - (40 * val),
+              left: -100 + (30 * val),
+              child: _BlurredCircle(
+                color: Colors.purple.withOpacity(isDark ? 0.12 : 0.05),
+                size: 300,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildModernAppBar(ThemeData theme, bool isDark) {
+    return SliverAppBar(
+      expandedHeight: 0,
+      floating: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: Icon(Icons.menu_rounded, color: theme.colorScheme.onSurface),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+      ),
+      title: Text(
+        "CORE PANEL",
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.5,
+          fontSize: 14,
+          color: theme.colorScheme.onSurface.withOpacity(0.6),
+        ),
+      ),
+      actions: [
+        _buildNotificationBadge(theme, isDark),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildNotificationBadge(ThemeData theme, bool isDark) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('reports').snapshots(),
+      builder: (context, snapshot) {
+        int reportCount = 0;
+        if (snapshot.hasData) {
+          final String adminDept = (widget.admin?.department ?? '')
+              .trim()
+              .toLowerCase();
+          reportCount = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final String studentDept = (data['studentDepartment'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            return adminDept.isEmpty || studentDept == adminDept;
+          }).length;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.notifications_none_rounded,
+                  color: theme.colorScheme.onSurface,
+                ),
+                onPressed: () => _navigateTo(
+                  ShowReportsPage(
+                    isFaculty: widget.admin?.isFaculty ?? false,
+                    department: widget.admin?.department ?? "",
+                    isSuperAdmin: false,
+                  ),
+                ),
+              ),
+              if (reportCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$reportCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildHeader(ThemeData theme, bool isDark) {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(35),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-            blurRadius: 30,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
@@ -346,101 +451,81 @@ class _AdminPageState extends State<AdminPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.blueAccent.withOpacity(0.15)
-                            : theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: isDark
-                            ? Border.all(
-                                color: Colors.blueAccent.withOpacity(0.2),
-                              )
-                            : null,
-                      ),
-                      child: Text(
-                        widget.admin?.isFaculty == true ? "FACULTY" : "STAFF",
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: isDark
-                              ? Colors.blueAccent
-                              : theme.colorScheme.primary,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      "${now.day} ${_getMonth(now.month)}",
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: isDark ? Colors.white38 : theme.disabledColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  "Welcome back,",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: isDark ? Colors.white54 : theme.disabledColor,
-                    fontWeight: FontWeight.w400,
-                  ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Text(
-                  widget.admin?.name ?? 'Administrator',
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                child: Text(
+                  widget.admin?.isFaculty == true ? "FACULTY" : "STAFF",
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : Colors.black,
-                    letterSpacing: -0.8,
+                    fontSize: 10,
+                    letterSpacing: 1.0,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.admin?.department ?? 'Authorized Personnel',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.white38 : theme.disabledColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+              ),
+              Text(
+                "${now.day} ${_getMonth(now.month)}",
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 25),
+          Text(
+            "Welcome back,",
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              fontSize: 16,
             ),
           ),
-          const SizedBox(height: 32),
-          _buildQuickStats(theme, isDark, startOfDay, endOfDay),
-          const SizedBox(height: 32),
+          Text(
+            widget.admin?.name ?? 'Administrator',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: theme.colorScheme.onSurface,
+              letterSpacing: -1.0,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            widget.admin?.department ?? 'Authorized Personnel',
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 35),
+          _buildQuickStats(theme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildQuickStats(
-    ThemeData theme,
-    bool isDark,
-    DateTime start,
-    DateTime end,
-  ) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          _buildStatChip(
+  Widget _buildQuickStats(ThemeData theme, bool isDark) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(const Duration(days: 1));
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatChip(
             theme,
             isDark,
-            label: "Logged Today",
+            label: "Logged",
             stream: FirebaseFirestore.instance
                 .collection('attendance')
                 .snapshots(),
@@ -455,30 +540,27 @@ class _AdminPageState extends State<AdminPage> {
                     .toString()
                     .trim()
                     .toLowerCase();
-
-                // Inclusive start of day check
                 final bool matchesDate =
                     ts != null &&
                     ts.toDate().isAfter(
                       start.subtract(const Duration(seconds: 1)),
                     ) &&
                     ts.toDate().isBefore(end);
-
-                // Match department or show all for superadmins/unassigned
                 final bool matchesDept =
                     adminDept.isEmpty || studentDept == adminDept;
-
                 return matchesDate && matchesDept;
               }).length;
             },
             icon: Icons.check_circle_rounded,
             color: Colors.blueAccent,
           ),
-          const SizedBox(width: 12),
-          _buildStatChip(
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: _buildStatChip(
             theme,
             isDark,
-            label: "Incident Reports",
+            label: "Reports",
             stream: FirebaseFirestore.instance
                 .collection('reports')
                 .snapshots(),
@@ -495,30 +577,12 @@ class _AdminPageState extends State<AdminPage> {
                 return adminDept.isEmpty || studentDept == adminDept;
               }).length;
             },
-            icon: Icons.warning_amber_rounded,
-            color: Colors.orangeAccent,
+            icon: Icons.warning_rounded,
+            color: Colors.orange,
           ),
-        ],
-      ),
+        ),
+      ],
     );
-  }
-
-  String _getMonth(int m) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[m - 1];
   }
 
   Widget _buildStatChip(
@@ -531,16 +595,15 @@ class _AdminPageState extends State<AdminPage> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? color.withOpacity(0.08) : color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(isDark ? 0.2 : 0.1)),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: color.withOpacity(0.15)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 22, color: color),
+          Icon(icon, size: 20, color: color),
           const SizedBox(width: 12),
           StreamBuilder<QuerySnapshot>(
             stream: stream,
@@ -548,20 +611,20 @@ class _AdminPageState extends State<AdminPage> {
               final count = snapshot.hasData ? filter(snapshot.data!.docs) : 0;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     count.toString(),
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 18,
                     ),
                   ),
                   Text(
                     label,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white38 : theme.disabledColor,
                     ),
                   ),
                 ],
@@ -583,13 +646,16 @@ class _AdminPageState extends State<AdminPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(32),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -597,35 +663,27 @@ class _AdminPageState extends State<AdminPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(32),
-          splashColor: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(30),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [color.withOpacity(0.2), color.withOpacity(0.05)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: color, size: 34),
+                  child: Icon(icon, color: color, size: 28),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 15),
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: isDark
-                        ? Colors.white.withOpacity(0.9)
-                        : Colors.black87,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -633,6 +691,41 @@ class _AdminPageState extends State<AdminPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  String _getMonth(int m) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[m - 1];
+  }
+}
+
+class _BlurredCircle extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _BlurredCircle({required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color, blurRadius: 100, spreadRadius: 50)],
       ),
     );
   }
