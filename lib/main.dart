@@ -23,7 +23,7 @@ Future<void> main() async {
 
   runApp(
     ChangeNotifierProvider(
-      create: (_) => ThemeNotifier(ThemeMode.light),
+      create: (_) => ThemeNotifier(ThemeMode.system),
       child: const MyApp(),
     ),
   );
