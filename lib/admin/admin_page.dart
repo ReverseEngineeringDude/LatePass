@@ -1,6 +1,5 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
-import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/add_remove_students_page.dart';
@@ -697,8 +696,9 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     return FutureBuilder<QuerySnapshot>(
       future: _studentsFuture,
       builder: (context, studentSnapshot) {
-        if (!studentSnapshot.hasData)
+        if (!studentSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
 
         final Map<String, Map<String, dynamic>> studentMap = {
           for (var doc in studentSnapshot.data!.docs)

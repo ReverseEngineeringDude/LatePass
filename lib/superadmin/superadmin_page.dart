@@ -548,18 +548,20 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                       String dept = (data['studentDepartment'] ?? '')
                           .toString()
                           .trim();
-                      if (dept.isEmpty)
+                      if (dept.isEmpty) {
                         dept = studentMap[data['studentId']] ?? '';
+                      }
 
                       if (_selectedDept == 'All Departments' ||
                           dept == _selectedDept) {
                         int h = checkTime.hour;
-                        if (h < 12)
+                        if (h < 12) {
                           morning++;
-                        else if (h < 17)
+                        } else if (h < 17) {
                           afternoon++;
-                        else
+                        } else {
                           evening++;
+                        }
                       }
                     }
                   }
