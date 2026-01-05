@@ -3,20 +3,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeNotifier with ChangeNotifier {
   ThemeMode _themeMode;
-  bool _isBiometricAuthEnabled = false;
+  bool _isBiometricAuthEnabled;
 
-  ThemeNotifier(this._themeMode) {
-    _loadTheme();
-    _loadBiometricAuth();
+  ThemeNotifier._(this._themeMode, this._isBiometricAuthEnabled);
+
+  static Future<ThemeNotifier> create() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    final isBiometricAuthEnabled = prefs.getBool('isBiometricAuthEnabled') ?? false;
+    return ThemeNotifier._(isDarkMode ? ThemeMode.dark : ThemeMode.light, isBiometricAuthEnabled);
   }
 
   ThemeMode get themeMode => _themeMode;
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
 
   void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light
-        ? ThemeMode.dark
-        : ThemeMode.light;
+    _themeMode =
+        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
     _saveTheme();
     notifyListeners();
   }
@@ -27,23 +30,9 @@ class ThemeNotifier with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _loadTheme() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _themeMode = (prefs.getBool('isDarkMode') ?? false)
-        ? ThemeMode.dark
-        : ThemeMode.light;
-    notifyListeners();
-  }
-
   Future<void> _saveTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setBool('isDarkMode', _themeMode == ThemeMode.dark);
-  }
-
-  Future<void> _loadBiometricAuth() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isBiometricAuthEnabled = prefs.getBool('isBiometricAuthEnabled') ?? false;
-    notifyListeners();
   }
 
   Future<void> _saveBiometricAuth() async {

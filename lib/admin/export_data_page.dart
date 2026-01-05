@@ -33,12 +33,11 @@ class _ExportDataPageState extends State<ExportDataPage> {
 
   /// Hardcoded headers for consistent data structure
   final List<String> _exportHeaders = [
-    'Timestamp',
     'Student ID',
     'Name',
     'Department',
     'Year',
-    'Marked By',
+    'Timestamp',
   ];
 
   Future<void> _selectDateRange() async {
@@ -119,12 +118,11 @@ class _ExportDataPageState extends State<ExportDataPage> {
         final student = studentLookup[studentId];
 
         tableRows.add([
-          DateFormat('yyyy-MM-dd HH:mm').format(attendanceDate),
           studentId,
           student?['name']?.toString() ?? 'Unknown',
           student?['department']?.toString() ?? 'Unknown',
           student?['year']?.toString() ?? 'N/A',
-          data['markedBy']?.toString() ?? 'System',
+          DateFormat('yyyy-MM-dd HH:mm').format(attendanceDate),
         ]);
       }
 

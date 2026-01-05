@@ -23,15 +23,15 @@ Future<void> main() async {
   // Initialize Firebase with platform-specific options
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  final themeNotifier = await ThemeNotifier.create();
+
   runApp(
     ChangeNotifierProvider(
-      create: (_) => ThemeNotifier(ThemeMode.system),
+      create: (_) => themeNotifier,
       child: const MyApp(),
     ),
   );
-}
-
-class MyApp extends StatelessWidget {
+}class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   // Custom App Colors (Matching the Portal Design)

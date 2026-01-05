@@ -93,6 +93,7 @@ google-services.json
 # Firebase
 .firebase/
 firebase.json
+lib/firebase_options.dart
 
 # Assets
 assets/admins.json
