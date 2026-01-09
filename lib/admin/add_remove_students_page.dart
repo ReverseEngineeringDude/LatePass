@@ -28,9 +28,9 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
 
   String _searchQuery = "";
   String _selectedDeptFilter = 'All Departments';
+  String _selectedYearFilter = 'All Years';
   bool _isImporting = false;
 
-  // Finalized department list - NO "General" allowed
   final List<String> _departments = [
     'All Departments',
     'Computer Engineering',
@@ -40,6 +40,8 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     'Electrical',
   ];
 
+  final List<String> _years = ['All Years', '1', '2', '3'];
+
   // Selection State
   final Set<String> _selectedIds = {};
   List<Student> _currentFilteredStudents = [];
@@ -47,15 +49,12 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
   @override
   void initState() {
     super.initState();
-    // Enforce department locking for non-superadmins.
     if (!widget.isSuperAdmin) {
-      // Logic: Lock the view and actions to the Admin's specific department
       if (widget.initialDepartment != null &&
           _departments.contains(widget.initialDepartment) &&
           widget.initialDepartment != 'All Departments') {
         _selectedDeptFilter = widget.initialDepartment!;
       } else {
-        // Fallback only if metadata is missing
         _selectedDeptFilter = _departments[1];
       }
     } else if (widget.initialDepartment != null &&
@@ -100,7 +99,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         if (docId != null && docId.isNotEmpty) {
           final docRef = _firestore.collection('students').doc(docId);
 
-          // Force strict departmental validity
           String studentDept;
           if (widget.isSuperAdmin) {
             final String rawImportDept =
@@ -109,7 +107,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                 ? rawImportDept
                 : _departments[1];
           } else {
-            // Regular Admins can ONLY import into their own department
             studentDept = widget.initialDepartment ?? _departments[1];
           }
 
@@ -204,7 +201,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     final idController = TextEditingController();
     final nameController = TextEditingController();
 
-    // Default selection is now locked to the admin's department
     String? selectedDepartment = widget.isSuperAdmin
         ? (_selectedDeptFilter == 'All Departments'
               ? _departments[1]
@@ -212,8 +208,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         : (widget.initialDepartment ?? _departments[1]);
 
     int? selectedYear;
-
-    // Filtered choices for regular admins: only their own department is selectable
     final List<String> availableDepartments = widget.isSuperAdmin
         ? _departments.where((d) => d != 'All Departments').toList()
         : [widget.initialDepartment ?? _departments[1]];
@@ -251,7 +245,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                     icon: Icons.person_outline_rounded,
                   ),
                   const SizedBox(height: 16),
-
                   _buildDialogDropdown<String>(
                     label: 'Department',
                     value: selectedDepartment,
@@ -332,7 +325,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
         batch.delete(_firestore.collection('students').doc(id));
       }
       await batch.commit();
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -340,7 +332,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-
       setState(() => _selectedIds.clear());
     }
   }
@@ -350,7 +341,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
     final theme = Theme.of(context);
     bool isSelectionMode = _selectedIds.isNotEmpty;
 
-    // Security Gate: Prevent access if user is not a SuperAdmin and has no department
     if (!widget.isSuperAdmin && widget.initialDepartment == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Access Denied")),
@@ -439,13 +429,13 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                     final allStudents = snapshot.data!.docs
                         .map((doc) => Student.fromFirestore(doc))
                         .toList();
+
                     _currentFilteredStudents = allStudents.where((s) {
                       final q = _searchQuery.toLowerCase();
                       final matchesSearch =
                           s.name.toLowerCase().contains(q) ||
                           s.id.toLowerCase().contains(q);
 
-                      // Filter list: Regular Admins are hard-locked to their own department
                       bool matchesDept;
                       if (widget.isSuperAdmin) {
                         matchesDept =
@@ -456,8 +446,18 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                             (s.department == widget.initialDepartment);
                       }
 
-                      return matchesSearch && matchesDept;
+                      bool matchesYear =
+                          _selectedYearFilter == 'All Years' ||
+                          s.year.toString() == _selectedYearFilter;
+
+                      return matchesSearch && matchesDept && matchesYear;
                     }).toList();
+
+                    // Alphabetical sorting
+                    _currentFilteredStudents.sort(
+                      (a, b) =>
+                          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                    );
 
                     if (_currentFilteredStudents.isEmpty) {
                       return _buildEmptyState(theme);
@@ -509,7 +509,6 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (widget.isSuperAdmin) _buildDeptFilter(theme),
               if (!widget.isSuperAdmin)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -529,6 +528,19 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (widget.isSuperAdmin) ...[
+                  _buildDeptFilter(theme),
+                  const SizedBox(width: 12),
+                ],
+                _buildYearFilter(theme),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -586,6 +598,51 @@ class _AddRemoveStudentsPageState extends State<AddRemoveStudentsPage> {
                   value: value,
                   child: Text(
                     value == 'All Departments' ? 'Global View' : value,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearFilter(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedYearFilter,
+          icon: Icon(
+            Icons.calendar_today_rounded,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          dropdownColor: isDark
+              ? const Color(0xFF1E293B)
+              : theme.colorScheme.surface,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : theme.colorScheme.onSurface,
+          ),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() => _selectedYearFilter = newValue);
+            }
+          },
+          items: _years
+              .map<DropdownMenuItem<String>>(
+                (String value) => DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value == 'All Years' ? 'All Years' : 'Year $value',
                   ),
                 ),
               )

@@ -19,6 +19,7 @@ class ShowReportsPage extends StatefulWidget {
 
 class _ShowReportsPageState extends State<ShowReportsPage> {
   String _selectedDeptFilter = 'All Departments';
+  String _selectedYearFilter = 'All Years';
 
   final List<String> _departments = [
     'All Departments',
@@ -28,6 +29,8 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
     'Civil',
     'Electrical',
   ];
+
+  final List<String> _years = ['All Years', '1', '2', '3'];
 
   @override
   void initState() {
@@ -45,7 +48,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
   }
 
   void _initializeFilter() {
-    // For regular admins/faculty, lock the view to their specific department
     if (widget.isFaculty && !widget.isSuperAdmin) {
       if (widget.department.isNotEmpty) {
         setState(() {
@@ -56,7 +58,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
   }
 
   Future<void> _resolveReport(DocumentSnapshot report) async {
-    Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -109,7 +110,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Security Gate
     if (!widget.isSuperAdmin && !widget.isFaculty) {
       return _buildAccessDenied(theme);
     }
@@ -132,8 +132,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
           _buildHeader(theme, isDark),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              // RULE 2: Fetching all and filtering in memory ensures immediate visibility
-              // and resolves comparison issues caused by trailing spaces or case differences.
               stream: FirebaseFirestore.instance
                   .collection('reports')
                   .snapshots(),
@@ -145,29 +143,48 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
 
                 final allReports = snapshot.data!.docs;
 
-                final filteredReports = allReports.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                final List<DocumentSnapshot> filteredReports = allReports.where(
+                  (doc) {
+                    final data = doc.data() as Map<String, dynamic>;
 
-                  // Extract department safely and normalize (trim and lower-case)
-                  final String reportDept = (data['studentDepartment'] ?? '')
-                      .toString()
-                      .trim()
-                      .toLowerCase();
+                    // Department Filter Logic
+                    final String reportDept = (data['studentDepartment'] ?? '')
+                        .toString()
+                        .trim()
+                        .toLowerCase();
+                    final bool matchesDept =
+                        (widget.isSuperAdmin &&
+                            _selectedDeptFilter == 'All Departments') ||
+                        reportDept == _selectedDeptFilter.trim().toLowerCase();
 
-                  // Determine target department string
-                  // If SuperAdmin is using "All Departments", show everything
-                  if (widget.isSuperAdmin &&
-                      _selectedDeptFilter == 'All Departments') {
-                    return true;
-                  }
+                    // Year Filter Logic
+                    final String reportYear = (data['studentYear'] ?? '')
+                        .toString()
+                        .trim();
+                    final bool matchesYear =
+                        _selectedYearFilter == 'All Years' ||
+                        reportYear == _selectedYearFilter;
 
-                  // Otherwise, match against the selected filter or the forced department
-                  final String targetDept = _selectedDeptFilter
-                      .trim()
-                      .toLowerCase();
+                    return matchesDept && matchesYear;
+                  },
+                ).toList();
 
-                  return reportDept == targetDept;
-                }).toList();
+                // FORCE ALPHABETICAL ORDER
+                filteredReports.sort((a, b) {
+                  final nameA =
+                      (a.data() as Map<String, dynamic>)['studentName']
+                          ?.toString()
+                          .toLowerCase()
+                          .trim() ??
+                      '';
+                  final nameB =
+                      (b.data() as Map<String, dynamic>)['studentName']
+                          ?.toString()
+                          .toLowerCase()
+                          .trim() ??
+                      '';
+                  return nameA.compareTo(nameB);
+                });
 
                 if (filteredReports.isEmpty) {
                   return _buildEmptyState(theme, isDark);
@@ -215,7 +232,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (widget.isSuperAdmin) _buildDeptFilter(theme, isDark),
               if (!widget.isSuperAdmin)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -232,7 +248,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                   child: Text(
                     widget.department.isNotEmpty
                         ? widget.department
-                        : "General",
+                        : "Registry",
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w900,
@@ -243,14 +259,16 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            _selectedDeptFilter == 'All Departments'
-                ? "All Active Incidents"
-                : "Logs: $_selectedDeptFilter",
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : Colors.black87,
-              letterSpacing: -0.5,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (widget.isSuperAdmin) ...[
+                  _buildDeptFilter(theme, isDark),
+                  const SizedBox(width: 12),
+                ],
+                _buildYearFilter(theme, isDark),
+              ],
             ),
           ),
         ],
@@ -291,6 +309,46 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(value == 'All Departments' ? 'Global View' : value),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearFilter(ThemeData theme, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedYearFilter,
+          icon: Icon(
+            Icons.calendar_today_rounded,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          dropdownColor: isDark
+              ? const Color(0xFF1E293B)
+              : theme.colorScheme.surface,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : theme.colorScheme.onSurface,
+          ),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() => _selectedYearFilter = newValue);
+            }
+          },
+          items: _years.map<DropdownMenuItem<String>>((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value == 'All Years' ? 'All Years' : 'Year $value'),
             );
           }).toList(),
         ),
@@ -376,25 +434,6 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
                     color: isDark ? Colors.white70 : Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (widget.isSuperAdmin)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      data['studentDepartment'] ?? 'General',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -454,7 +493,7 @@ class _ShowReportsPageState extends State<ShowReportsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'No pending reports found for $_selectedDeptFilter.',
+            'No matching reports found for the selected criteria.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark ? Colors.white38 : theme.disabledColor,
             ),
