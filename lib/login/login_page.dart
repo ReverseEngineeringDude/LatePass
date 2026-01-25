@@ -304,39 +304,41 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       animation: _backgroundController,
       builder: (context, child) {
         final val = _backgroundController.value;
-        return Stack(
-          children: [
-            Positioned(
-              top: -150 + (20 * val),
-              right: -100 + (30 * val),
-              child: _BlurredCircle(
-                color: theme.colorScheme.primary.withOpacity(
-                  isDark ? 0.3 : 0.2,
+        return RepaintBoundary(
+          child: Stack(
+            children: [
+              Positioned(
+                top: -150 + (20 * val),
+                right: -100 + (30 * val),
+                child: _BlurredCircle(
+                  color: theme.colorScheme.primary.withOpacity(
+                    isDark ? 0.3 : 0.2,
+                  ),
+                  size: 400,
                 ),
-                size: 400,
               ),
-            ),
-            Positioned(
-              bottom: -100 - (40 * val),
-              left: -80 + (20 * val),
-              child: _BlurredCircle(
-                color: theme.colorScheme.secondary.withOpacity(
-                  isDark ? 0.25 : 0.15,
+              Positioned(
+                bottom: -100 - (40 * val),
+                left: -80 + (20 * val),
+                child: _BlurredCircle(
+                  color: theme.colorScheme.secondary.withOpacity(
+                    isDark ? 0.25 : 0.15,
+                  ),
+                  size: 350,
                 ),
-                size: 350,
               ),
-            ),
-            Positioned(
-              top: 200 - (30 * val),
-              left: -150 + (40 * val),
-              child: _BlurredCircle(
-                color: theme.colorScheme.tertiary.withOpacity(
-                  isDark ? 0.15 : 0.1,
+              Positioned(
+                top: 200 - (30 * val),
+                left: -150 + (40 * val),
+                child: _BlurredCircle(
+                  color: theme.colorScheme.tertiary.withOpacity(
+                    isDark ? 0.15 : 0.1,
+                  ),
+                  size: 300,
                 ),
-                size: 300,
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -384,53 +386,55 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildGlassCard(ThemeData theme, bool isDark) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(40),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withOpacity(0.03)
-                : Colors.white.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withOpacity(0.08)
-                  : Colors.white.withOpacity(0.4),
-              width: 1.5,
+                  ? Colors.white.withOpacity(0.03)
+                  : Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : Colors.white.withOpacity(0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 30,
+                  offset: const Offset(0, 15),
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildModernField(
-                controller: emailController,
-                label: "ADMIN EMAIL",
-                hint: "red@latepass.com",
-                icon: Icons.email_outlined,
-                theme: theme,
-              ),
-              const SizedBox(height: 24),
-              _buildModernField(
-                controller: passwordController,
-                label: "ACCESS KEY",
-                hint: "••••••••",
-                icon: Icons.key_outlined,
-                isPassword: true,
-                theme: theme,
-              ),
-              const SizedBox(height: 40),
-              _buildPrimaryButton(theme),
-            ],
+            child: Column(
+              children: [
+                _buildModernField(
+                  controller: emailController,
+                  label: "ADMIN EMAIL",
+                  hint: "red@latepass.com",
+                  icon: Icons.email_outlined,
+                  theme: theme,
+                ),
+                const SizedBox(height: 24),
+                _buildModernField(
+                  controller: passwordController,
+                  label: "ACCESS KEY",
+                  hint: "••••••••",
+                  icon: Icons.key_outlined,
+                  isPassword: true,
+                  theme: theme,
+                ),
+                const SizedBox(height: 40),
+                _buildPrimaryButton(theme),
+              ],
+            ),
           ),
         ),
       ),

@@ -283,27 +283,29 @@ class _StudentPageState extends State<StudentPage>
       animation: _backgroundController,
       builder: (context, child) {
         final val = _backgroundController.value;
-        return Stack(
-          children: [
-            Positioned(
-              top: -150 + (50 * val),
-              right: -100 - (20 * val),
-              child: _BlurredCircle(
-                color: theme.colorScheme.primary.withOpacity(
-                  isDark ? 0.12 : 0.06,
+        return RepaintBoundary(
+          child: Stack(
+            children: [
+              Positioned(
+                top: -150 + (50 * val),
+                right: -100 - (20 * val),
+                child: _BlurredCircle(
+                  color: theme.colorScheme.primary.withOpacity(
+                    isDark ? 0.12 : 0.06,
+                  ),
+                  size: 450,
                 ),
-                size: 450,
               ),
-            ),
-            Positioned(
-              bottom: 50 - (60 * val),
-              left: -150 + (50 * val),
-              child: _BlurredCircle(
-                color: Colors.purple.withOpacity(isDark ? 0.08 : 0.04),
-                size: 400,
+              Positioned(
+                bottom: 50 - (60 * val),
+                left: -150 + (50 * val),
+                child: _BlurredCircle(
+                  color: Colors.purple.withOpacity(isDark ? 0.08 : 0.04),
+                  size: 400,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

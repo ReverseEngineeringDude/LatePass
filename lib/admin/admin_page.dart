@@ -13,6 +13,7 @@ import 'package:latepass/admin/todays_attendance_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/admin_model.dart';
+import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 
 class AdminPage extends StatefulWidget {
   final Admin? admin;
@@ -874,6 +875,12 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           department: widget.admin?.department ?? "",
           isSuperAdmin: false,
         ),
+      },
+      {
+        "title": "Leaderboard",
+        "icon": Icons.leaderboard_rounded,
+        "color": Colors.purpleAccent,
+        "page": const LateComersLeaderboardPage(),
       },
     ];
 

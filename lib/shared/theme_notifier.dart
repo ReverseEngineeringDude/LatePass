@@ -17,26 +17,26 @@ class ThemeNotifier with ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
 
-  void toggleTheme() {
+  Future<void> toggleTheme() async {
     _themeMode =
         _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    _saveTheme();
     notifyListeners();
+    await _saveTheme();
   }
 
   Future<void> toggleBiometricAuth() async {
     _isBiometricAuthEnabled = !_isBiometricAuthEnabled;
-    await _saveBiometricAuth();
-    notifyListeners();
+    notifyListeners(); // Notify immediately for UI feedback
+    await _saveBiometricAuth(); // Save efficiently
   }
 
   Future<void> _saveTheme() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool('isDarkMode', _themeMode == ThemeMode.dark);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', _themeMode == ThemeMode.dark);
   }
 
   Future<void> _saveBiometricAuth() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isBiometricAuthEnabled', _isBiometricAuthEnabled);
   }
 }

@@ -12,6 +12,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/manage_admins_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
+import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 
 class SuperAdminPage extends StatefulWidget {
   final List<Admin> admins;
@@ -187,6 +188,12 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
         "icon": Icons.today_rounded,
         "color": Colors.cyanAccent,
         "page": const TodaysAttendancePage(),
+      },
+      {
+        "title": "Leaderboard",
+        "icon": Icons.leaderboard_rounded,
+        "color": Colors.purpleAccent,
+        "page": const LateComersLeaderboardPage(),
       },
     ];
 

@@ -13,6 +13,7 @@ import 'package:latepass/student/student_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/superadmin/superadmin_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:latepass/shared/offline_banner.dart';
 
 import 'package:latepass/shared/theme_notifier.dart';
 import 'package:provider/provider.dart';
@@ -41,10 +42,10 @@ Future<void> main() async {
   Widget build(BuildContext context) {
     return Consumer<ThemeNotifier>(
       builder: (context, themeNotifier, child) {
+
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'LatePass Portal',
-
           // Modern Material 3 Theme Configuration
           theme: ThemeData(
             useMaterial3: true,
@@ -77,6 +78,10 @@ Future<void> main() async {
             ),
           ),
           themeMode: themeNotifier.themeMode,
+          
+          builder: (context, child) {
+            return OfflineBanner(child: child!);
+          },
 
           home: AuthWrapper(key: UniqueKey()),
           routes: {
