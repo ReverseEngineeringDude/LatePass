@@ -2,7 +2,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 import 'package:latepass/admin/add_remove_students_page.dart';
 import 'package:latepass/admin/export_data_page.dart';
 import 'package:latepass/admin/id_scan_page.dart';
@@ -865,12 +864,6 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           isSuperAdmin: false,
           initialDepartment: widget.admin?.department,
         ),
-      },
-      {
-        "title": "Leaderboard",
-        "icon": Icons.leaderboard_rounded,
-        "color": Colors.deepPurpleAccent,
-        "page": const LateComersLeaderboardPage(),
       },
       {
         "title": "Actions Log",
