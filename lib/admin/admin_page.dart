@@ -15,6 +15,8 @@ import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 
+
+
 class AdminPage extends StatefulWidget {
   final Admin? admin;
 
@@ -183,22 +185,55 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildSliverAppBar(theme, isDark),
+              
+              // Hero Section
+              SliverToBoxAdapter(
+                child: _animate(
+                  delay: 0.1,
+                  child: _buildHeroSection(theme, isDark),
+                ),
+              ),
+
+              // Trend Graph
+              SliverToBoxAdapter(
+                child: Container(
+                  color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF1F5F9),
+                   padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _animate(
+                    delay: 0.25,
+                    child: _buildTrendGraph(theme, isDark),
+                  ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+               // Metric Card
+              SliverToBoxAdapter(
+                child: Container(
+                   color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF1F5F9),
+                   padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _animate(
+                    delay: 0.25,
+                    child: _buildMetricCard(
+                      "Peak Intensity",
+                      _buildTimeAnalysis(),
+                      theme,
+                      isDark,
+                    ),
+                  ),
+                ),
+              ),
+
+
+
+
+
+
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _animate(
-                      delay: 0.1,
-                      child: _buildHeroSection(theme, isDark),
-                    ),
-                    _animate(
-                      delay: 0.2,
-                      child: _buildSectionTitle("SYSTEM PERFORMANCE", theme),
-                    ),
-                    _animate(
-                      delay: 0.25,
-                      child: _buildInsightsPanel(theme, isDark),
-                    ),
                     _animate(
                       delay: 0.3,
                       child: _buildSectionTitle("ADMINISTRATIVE TOOLS", theme),
@@ -217,7 +252,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
   Widget _buildSliverAppBar(ThemeData theme, bool isDark) {
     return SliverAppBar(
-      floating: true,
+      floating: false,
+      pinned: true,
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,

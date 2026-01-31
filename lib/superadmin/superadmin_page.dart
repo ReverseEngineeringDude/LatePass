@@ -14,6 +14,9 @@ import 'package:latepass/superadmin/manage_admins_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 
+
+
+
 class SuperAdminPage extends StatefulWidget {
   final List<Admin> admins;
   final Function(Admin) onAddAdmin;
@@ -282,14 +285,60 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               ),
             ),
 
-          SingleChildScrollView(
+          CustomScrollView(
             physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                _buildHeader(theme, isDark),
-                const SizedBox(height: 24),
-                _buildAnalyticsSection(theme, isDark),
-                Padding(
+            slivers: [
+            // Header Section
+            SliverToBoxAdapter(
+              child: _buildHeader(theme, isDark),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+            // Weekly Trend Section
+            SliverToBoxAdapter(
+              child: Container(
+                color: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 8),
+                        Text(
+                          "SYSTEM INSIGHTS",
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: isDark ? Colors.white38 : theme.colorScheme.primary,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildWeeklyTrend(theme, isDark),
+                  ],
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+            // Engagement Intensity Section
+            SliverToBoxAdapter(
+              child: Container(
+                color: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: _buildEngagementIntensity(theme, isDark),
+              ),
+            ),
+
+
+
+
+
+              SliverToBoxAdapter(
+                child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
                   child: Row(
                     children: [
@@ -306,32 +355,36 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                     ],
                   ),
                 ),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: menuItems.length,
+              ),
+
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                     childAspectRatio: 1.1,
                   ),
-                  itemBuilder: (context, index) {
-                    final item = menuItems[index];
-                    return _buildMenuCard(
-                      theme,
-                      isDark,
-                      title: item["title"],
-                      icon: item["icon"],
-                      color: item["color"],
-                      onTap: () => _navigateTo(item["page"]),
-                    );
-                  },
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = menuItems[index];
+                      return _buildMenuCard(
+                        theme,
+                        isDark,
+                        title: item["title"],
+                        icon: item["icon"],
+                        color: item["color"],
+                        onTap: () => _navigateTo(item["page"]),
+                      );
+                    },
+                    childCount: menuItems.length,
+                  ),
                 ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
           ),
         ],
       ),

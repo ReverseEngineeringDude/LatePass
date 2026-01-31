@@ -27,6 +27,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   late AnimationController _listController;
   late AnimationController _headerController;
   late AnimationController _backgroundController;
+  late AnimationController _speechBubbleController;
 
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentPurple = Color(0xFF7C3AED);
@@ -40,21 +41,31 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
 
     _headerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     );
 
     _listController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _backgroundController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 25),
     )..repeat(reverse: true);
+    
+    _speechBubbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
 
     _headerController.forward();
     _listController.forward();
+    
+    // Delay speech bubble slightly so it pops up after user sees avatar
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) _speechBubbleController.forward();
+    });
   }
 
   @override
@@ -62,6 +73,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     _headerController.dispose();
     _listController.dispose();
     _backgroundController.dispose();
+    _speechBubbleController.dispose();
     super.dispose();
   }
 
@@ -111,27 +123,21 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     final isDark = theme.brightness == Brightness.dark;
 
     return Drawer(
-      backgroundColor: Colors.transparent, // Required for glassmorphism
+      backgroundColor: Colors.transparent,
       elevation: 0,
       width: MediaQuery.of(context).size.width * 0.85,
       child: Stack(
         children: [
-          // Background Glass effect
           _buildGlassBackdrop(isDark),
-
-          // Animated Blobs behind the drawer content
-          _buildAnimatedBlobs(isDark),
-
+          _buildAnimatedBlobs(),
           Column(
             children: [
-              _buildAnimatedHeader(theme, isDark),
+              _buildAnimatedCenteredHeader(theme, isDark),
+              const SizedBox(height: 10),
               Expanded(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 20,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
                     _buildAnimatedItem(
                       index: 0,
@@ -163,7 +169,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                       child: Consumer<ThemeNotifier>(
                         builder: (context, themeNotifier, child) {
                           return _buildSwitchDrawerItem(
-                            icon: Icons.fingerprint,
+                            icon: Icons.fingerprint_rounded,
                             label: 'Biometric Lock',
                             value: themeNotifier.isBiometricAuthEnabled,
                             isDark: isDark,
@@ -178,32 +184,10 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
                         },
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 20,
-                        horizontal: 10,
-                      ),
-                      child: Divider(
-                        thickness: 1,
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.black.withOpacity(0.05),
-                      ),
-                    ),
-                    _buildAnimatedItem(
-                      index: 3,
-                      child: _buildDrawerItem(
-                        icon: Icons.logout_rounded,
-                        label: 'Logout',
-                        color: Colors.redAccent,
-                        isDark: isDark,
-                        onTap: () => _showLogoutDialog(context),
-                      ),
-                    ),
                   ],
                 ),
               ),
-              _buildFooter(isDark),
+              _buildBottomActionZone(isDark),
             ],
           ),
         ],
@@ -214,19 +198,22 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
   Widget _buildGlassBackdrop(bool isDark) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        topRight: Radius.circular(40),
-        bottomRight: Radius.circular(40),
+        topRight: Radius.circular(45),
+        bottomRight: Radius.circular(45),
       ),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
         child: Container(
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF0F1115).withOpacity(0.8)
-                : Colors.white.withOpacity(0.85),
+                ? const Color(0xFF0F1115).withOpacity(0.88)
+                : Colors.white.withOpacity(0.92),
             border: Border(
               right: BorderSide(
-                color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                color: isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : Colors.black.withOpacity(0.05),
+                width: 1.5,
               ),
             ),
           ),
@@ -235,7 +222,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAnimatedBlobs(bool isDark) {
+  Widget _buildAnimatedBlobs() {
     return AnimatedBuilder(
       animation: _backgroundController,
       builder: (context, child) {
@@ -243,14 +230,14 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
         return Stack(
           children: [
             Positioned(
-              top: 100 + (50 * val),
-              right: -50,
-              child: _Blob(color: primaryBlue.withOpacity(0.1), size: 200),
+              top: 50 + (120 * val),
+              right: -70,
+              child: _Blob(color: primaryBlue.withOpacity(0.08), size: 280),
             ),
             Positioned(
-              bottom: 100 - (50 * val),
-              left: -30,
-              child: _Blob(color: accentPurple.withOpacity(0.08), size: 180),
+              bottom: 150 - (100 * val),
+              left: -40,
+              child: _Blob(color: accentPurple.withOpacity(0.06), size: 240),
             ),
           ],
         );
@@ -258,34 +245,52 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAnimatedHeader(ThemeData theme, bool isDark) {
+  Widget _buildAnimatedCenteredHeader(ThemeData theme, bool isDark) {
     return SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, -0.2), end: Offset.zero)
+      position: Tween<Offset>(begin: const Offset(0, -0.15), end: Offset.zero)
           .animate(
             CurvedAnimation(
               parent: _headerController,
-              curve: Curves.easeOutCubic,
+              curve: Curves.easeOutQuart,
             ),
           ),
       child: FadeTransition(
         opacity: _headerController,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(30, 70, 30, 40),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
+          padding: const EdgeInsets.fromLTRB(20, 65, 20, 35),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
               colors: [primaryBlue, accentPurple],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.only(bottomRight: Radius.circular(50)),
+            borderRadius: const BorderRadius.only(
+              bottomRight: Radius.circular(55),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primaryBlue.withOpacity(0.2),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildProfileAvatar(isDark),
-              const SizedBox(height: 25),
-              _isLoading ? _buildHeaderLoader() : _buildUserInfo(theme),
+              _buildCenteredProfileAvatar(),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const SizedBox(
+                      height: 50,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    )
+                  : _buildCenteredUserInfo(),
             ],
           ),
         ),
@@ -293,91 +298,150 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildProfileAvatar(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: CircleAvatar(
-        radius: 38,
-        backgroundColor: Colors.white.withOpacity(0.15),
-        child: const Icon(Icons.person_rounded, color: Colors.white, size: 40),
-      ),
-    );
-  }
-
-  Widget _buildUserInfo(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildCenteredProfileAvatar() {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
       children: [
-        Text(
-          _userName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+        // Outer Glow/Border
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+            boxShadow: [
+               BoxShadow(
+                color: Colors.white.withOpacity(0.1),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+        
+        // 3D Avatar Image
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.1),
+            border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
               ),
-              child: Text(
-                _userRole.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
+            ],
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/avatar_3d.jpg',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+
+        // Animated Speech Bubble "Hi"
+        Positioned(
+          top: -15,
+          right: -25,
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: _speechBubbleController,
+              curve: Curves.elasticOut,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  topRight: Radius.circular(15),
+                  bottomRight: Radius.circular(15),
+                  bottomLeft: Radius.circular(4),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(2, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Hi! 👋",
+                    style: TextStyle(
+                      color: Color(0xFF2563EB), // Primary Blue
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
-            if (_userDepartment.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "• $_userDepartment",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildHeaderLoader() {
-    return const SizedBox(
-      height: 40,
-      width: 40,
-      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+  Widget _buildCenteredUserInfo() {
+    return Column(
+      children: [
+        Text(
+          _userName,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Text(
+            _userRole.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        if (_userDepartment.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            _userDepartment,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildAnimatedItem({required int index, required Widget child}) {
-    final start = (index * 0.1).clamp(0.0, 1.0);
+    final start = (index * 0.08).clamp(0.0, 1.0);
     return AnimatedBuilder(
       animation: _listController,
       builder: (context, child) {
@@ -385,14 +449,15 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
           parent: _listController,
           curve: Interval(
             start,
-            (start + 0.6).clamp(0.0, 1.0),
-            curve: Curves.easeOutQuart,
+            (start + 0.5).clamp(0.0, 1.0),
+            curve: Curves.easeOutBack,
           ),
         );
         return Opacity(
-          opacity: curve.value,
+          // Clamp the value to [0.0, 1.0] to prevent the overshoot crash caused by Curves.easeOutBack
+          opacity: curve.value.clamp(0.0, 1.0),
           child: Transform.translate(
-            offset: Offset(-30 * (1 - curve.value), 0),
+            offset: Offset(-50 * (1 - curve.value), 0),
             child: child,
           ),
         );
@@ -405,40 +470,39 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    Color? color,
     bool isActive = false,
     required bool isDark,
   }) {
-    final theme = Theme.of(context);
-    final baseColor =
-        color ??
-        (isActive
-            ? primaryBlue
-            : (isDark ? Colors.white70 : theme.colorScheme.onSurface));
+    final baseColor = isActive
+        ? primaryBlue
+        : (isDark
+              ? Colors.white.withOpacity(0.8)
+              : Colors.black.withOpacity(0.7));
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isActive
             ? primaryBlue.withOpacity(isDark ? 0.15 : 0.1)
             : (isDark
                   ? Colors.white.withOpacity(0.03)
-                  : Colors.black.withOpacity(0.02)),
-        borderRadius: BorderRadius.circular(20),
+                  : Colors.black.withOpacity(0.03)),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isActive ? primaryBlue.withOpacity(0.2) : Colors.transparent,
+          color: isActive
+              ? primaryBlue.withOpacity(0.3)
+              : (isDark ? Colors.white.withOpacity(0.06) : Colors.transparent),
         ),
       ),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
         leading: Icon(icon, color: baseColor, size: 24),
         title: Text(
           label,
           style: TextStyle(
             color: baseColor,
-            fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
+            fontWeight: isActive ? FontWeight.w900 : FontWeight.w700,
             fontSize: 15,
           ),
         ),
@@ -458,30 +522,31 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     required String label,
     required bool value,
     required ValueChanged<bool> onChanged,
-    Color? color,
     required bool isDark,
   }) {
-    final theme = Theme.of(context);
-    final baseColor =
-        color ?? (isDark ? Colors.white70 : theme.colorScheme.onSurface);
+    final baseColor = isDark
+        ? Colors.white.withOpacity(0.8)
+        : Colors.black.withOpacity(0.7);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withOpacity(0.03)
-            : Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(20),
+            : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.transparent,
+        ),
       ),
       child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
         secondary: Icon(icon, color: baseColor, size: 24),
         title: Text(
           label,
           style: TextStyle(
             color: baseColor,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             fontSize: 15,
           ),
         ),
@@ -492,41 +557,92 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFooter(bool isDark) {
+  Widget _buildBottomActionZone(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(30),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: primaryBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.info_outline_rounded,
-              size: 18,
-              color: primaryBlue,
-            ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 35),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.02)
+            : Colors.black.withOpacity(0.02),
+        borderRadius: const BorderRadius.only(topRight: Radius.circular(35)),
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.05),
           ),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'LatePass System',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              Icon(
+                Icons.shield_rounded,
+                size: 16,
+                color: primaryBlue.withOpacity(0.6),
               ),
+              const SizedBox(width: 8),
               Text(
-                'Version 1.0.0 Stable',
+                'LatePass Portal v1.0.0',
                 style: TextStyle(
-                  color: isDark ? Colors.white24 : Colors.grey.shade500,
+                  color: isDark ? Colors.white24 : Colors.black26,
                   fontSize: 11,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          _buildLogoutButton(isDark),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(bool isDark) {
+    return Container(
+      width: double.infinity,
+      height: 58,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          colors: [
+            Colors.redAccent.withOpacity(0.8),
+            Colors.red.withOpacity(0.9),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: () => _showLogoutDialog(context),
+        icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 22),
+        label: const Text(
+          'Log Out',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            letterSpacing: 0.5,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
       ),
     );
   }
@@ -536,14 +652,13 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
       context: context,
       builder: (BuildContext context) {
         return BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: AlertDialog(
             backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF1A1C21).withOpacity(0.9)
-                : Colors.white.withOpacity(0.9),
+                ? const Color(0xFF1A1C21).withOpacity(0.85)
+                : Colors.white.withOpacity(0.95),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
-              side: BorderSide(color: Colors.white10),
             ),
             title: const Row(
               children: [
@@ -556,8 +671,8 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               ],
             ),
             content: const Text(
-              'Are you sure you want to end your current administrative session?',
-              style: TextStyle(height: 1.5),
+              'Are you sure you want to end your current session?',
+              style: TextStyle(height: 1.5, fontWeight: FontWeight.w500),
             ),
             actionsPadding: const EdgeInsets.all(20),
             actions: [
@@ -612,7 +727,7 @@ class _Blob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color, blurRadius: 40, spreadRadius: 20)],
+        boxShadow: [BoxShadow(color: color, blurRadius: 50, spreadRadius: 30)],
       ),
     );
   }
