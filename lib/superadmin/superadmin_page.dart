@@ -13,8 +13,7 @@ import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/manage_admins_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
-
-
+import 'package:latepass/shared/glass_card.dart';
 
 
 class SuperAdminPage extends StatefulWidget {
@@ -297,27 +296,29 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
 
             // Weekly Trend Section
             SliverToBoxAdapter(
-              child: Container(
-                color: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        Text(
-                          "SYSTEM INSIGHTS",
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: isDark ? Colors.white38 : theme.colorScheme.primary,
-                            letterSpacing: 1.5,
-                            fontWeight: FontWeight.w900,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          Text(
+                            "SYSTEM INSIGHTS",
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: isDark ? Colors.white38 : theme.colorScheme.primary,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildWeeklyTrend(theme, isDark),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildWeeklyTrend(theme, isDark),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -326,10 +327,12 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
 
             // Engagement Intensity Section
             SliverToBoxAdapter(
-              child: Container(
-                color: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: _buildEngagementIntensity(theme, isDark),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildEngagementIntensity(theme, isDark),
+                ),
               ),
             ),
 
@@ -420,20 +423,8 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   }
 
   Widget _buildWeeklyTrend(ThemeData theme, bool isDark) {
-    return Container(
-      height: 240, // Increased height to prevent vertical RenderFlex overflow
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return SizedBox(
+      height: 240,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -557,22 +548,9 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   }
 
   Widget _buildEngagementIntensity(ThemeData theme, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           const Text(
             "Peak Engagement",
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
@@ -656,8 +634,7 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
             },
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildLinearBar(String label, int val, int total, Color color) {

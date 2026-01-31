@@ -9,6 +9,7 @@ import 'package:latepass/superadmin/admin_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latepass/shared/theme_notifier.dart';
 import 'package:provider/provider.dart';
+import 'package:latepass/shared/skeleton_loader.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -86,7 +87,7 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
       switch (userRole) {
         case 'superadmin':
           _userRole = 'Superadmin';
-          _userName = _user?.email ?? 'Superadmin';
+          _userName = _user?.displayName ?? 'Superadmin';
           break;
         case 'admin':
           final adminData = prefs.getString('admin_data');
@@ -281,14 +282,17 @@ class _AppDrawerState extends State<AppDrawer> with TickerProviderStateMixin {
               _buildCenteredProfileAvatar(),
               const SizedBox(height: 20),
               _isLoading
-                  ? const SizedBox(
-                      height: 50,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      ),
+                  ? Column(
+                      children: [
+                        const SkeletonContainer.rectangular(
+                            width: 150, height: 24, borderRadius: BorderRadius.all(Radius.circular(6))),
+                        const SizedBox(height: 12),
+                        const SkeletonContainer.rectangular(
+                            width: 80, height: 20, borderRadius: BorderRadius.all(Radius.circular(20))),
+                        const SizedBox(height: 10),
+                        const SkeletonContainer.rectangular(
+                            width: 100, height: 14, borderRadius: BorderRadius.all(Radius.circular(4))),
+                      ],
                     )
                   : _buildCenteredUserInfo(),
             ],

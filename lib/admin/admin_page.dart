@@ -14,7 +14,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
-
+import 'package:latepass/shared/glass_card.dart';
 
 
 class AdminPage extends StatefulWidget {
@@ -196,12 +196,14 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
               // Trend Graph
               SliverToBoxAdapter(
-                child: Container(
-                  color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF1F5F9),
-                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _animate(
-                    delay: 0.25,
-                    child: _buildTrendGraph(theme, isDark),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(16),
+                    child: _animate(
+                      delay: 0.25,
+                      child: _buildTrendGraph(theme, isDark),
+                    ),
                   ),
                 ),
               ),
@@ -210,16 +212,18 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
                // Metric Card
               SliverToBoxAdapter(
-                child: Container(
-                   color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF1F5F9),
-                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _animate(
-                    delay: 0.25,
-                    child: _buildMetricCard(
-                      "Peak Intensity",
-                      _buildTimeAnalysis(),
-                      theme,
-                      isDark,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: GlassCard(
+                     padding: const EdgeInsets.all(16),
+                    child: _animate(
+                      delay: 0.25,
+                      child: _buildMetricCard(
+                        "Peak Intensity",
+                        _buildTimeAnalysis(),
+                        theme,
+                        isDark,
+                      ),
                     ),
                   ),
                 ),
@@ -518,20 +522,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   }
 
   Widget _buildTrendGraph(ThemeData theme, bool isDark) {
-    return Container(
+    return SizedBox(
       height: 240,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -704,13 +696,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     ThemeData theme,
     bool isDark,
   ) {
-    return Container(
+    return SizedBox(
       height: 190,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

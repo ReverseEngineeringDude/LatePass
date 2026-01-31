@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latepass/admin/admin_page.dart';
 import 'package:latepass/firebase_options.dart';
 import 'package:latepass/login/login_page.dart';
@@ -54,12 +55,19 @@ Future<void> main() async {
               primary: primaryBlue,
               brightness: Brightness.light,
             ),
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
             scaffoldBackgroundColor: const Color(0xFFF8FAFC),
             appBarTheme: const AppBarTheme(
               centerTitle: true,
               elevation: 0,
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+              },
             ),
           ),
           darkTheme: ThemeData(
@@ -69,12 +77,19 @@ Future<void> main() async {
               primary: primaryBlue,
               brightness: Brightness.dark,
             ),
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
             scaffoldBackgroundColor: const Color(0xFF0F172A),
             appBarTheme: const AppBarTheme(
               centerTitle: true,
               elevation: 0,
               backgroundColor: Color(0xFF1E293B),
               foregroundColor: Colors.white,
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+              },
             ),
           ),
           themeMode: themeNotifier.themeMode,
