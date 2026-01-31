@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/add_remove_students_page.dart';
@@ -15,6 +16,7 @@ import 'package:latepass/shared/app_drawer.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 import 'package:latepass/shared/glass_card.dart';
+import 'package:latepass/admin/components/sticky_card_stack.dart';
 
 class AdminPage extends StatefulWidget {
   final Admin? admin;
@@ -28,6 +30,7 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   late AnimationController _entryController;
   late AnimationController _backgroundController;
+  late ScrollController _scrollController;
 
   // Cache student data to allow looking up missing info in old logs
   late Future<QuerySnapshot> _studentsFuture;
@@ -44,6 +47,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
       duration: const Duration(seconds: 30),
     )..repeat(reverse: true);
 
+    _scrollController = ScrollController();
+
     _entryController.forward();
 
     // Fetch students once on init for analytics lookup
@@ -54,6 +59,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   void dispose() {
     _entryController.dispose();
     _backgroundController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -180,67 +186,92 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
       body: Stack(
         children: [
           _buildAnimatedBackground(theme, isDark),
+          
+          // Layer 1: Sticky Cards (Background)
+          StickyCardsBackground(
+            controller: _scrollController,
+            topPadding: 160.0,
+            collapsedHeight: 240.0, // Fallback default
+            customSpacers: [210.0, 340.0], // Card 1->2 gap (210), Card 2->3 gap (340)
+            cardStackOffset: 15.0,
+            children: [
+               _animate(
+                 delay: 0.1,
+                 child: _buildHeroSection(theme, isDark),
+               ),
+               
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 20),
+                 child: GlassCard(
+                   padding: const EdgeInsets.all(12), // Reduced from 16
+                   child: _animate(
+                     delay: 0.25,
+                     child: _buildTrendGraph(theme, isDark),
+                   ),
+                 ),
+               ),
+               
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 20),
+                 child: GlassCard(
+                   padding: const EdgeInsets.all(12), // Reduced from 16
+                   child: _animate(
+                     delay: 0.25,
+                     child: _buildMetricCard(
+                       "Peak Intensity",
+                       _buildTimeAnalysis(),
+                       theme,
+                       isDark,
+                     ),
+                   ),
+                 ),
+               ),
+            ],
+          ),
+
+          // Layer 2: Scroll View (Foreground)
           CustomScrollView(
+            controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildSliverAppBar(theme, isDark),
 
-              // Hero Section
-              SliverToBoxAdapter(
-                child: _animate(
-                  delay: 0.1,
-                  child: _buildHeroSection(theme, isDark),
-                ),
+              // Spacer to allow viewing the sticky stack interactions
+              // Height = approx (cards * collapsedHeight) to allow "scrolling" them
+              // Or better: calculated based on the animation logic.
+              // Logic: 3 cards. Card 1 at top. Card 2 comes up. Card 3 comes up.
+              // Total distance needed = 2 * collapsedHeight? 
+              // Let's give it plenty of room: 900px
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 850), // Reduced from 1100 to fix excessive gap
               ),
 
-              // Trend Graph
+              // Admin Tools Section - Glassmorphic Background to cover cards
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: _animate(
-                      delay: 0.25,
-                      child: _buildTrendGraph(theme, isDark),
+                 child: ClipRRect(
+                   child: BackdropFilter(
+                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                     child: Container(
+                       // Semi-transparent background for glass effect
+                       color: isDark 
+                           ? const Color(0xFF0B0E14).withOpacity(0.5) 
+                           : const Color(0xFFF1F5F9).withOpacity(0.5), 
+                       child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 15), // Reduced top padding
+                        _animate(
+                          delay: 0.3,
+                          child: _buildSectionTitle("ADMINISTRATIVE TOOLS", theme),
+                        ),
+                        _buildToolsGrid(theme, isDark),
+                        const SizedBox(height: 60),
+                      ],
                     ),
                   ),
                 ),
               ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-              // Metric Card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: _animate(
-                      delay: 0.25,
-                      child: _buildMetricCard(
-                        "Peak Intensity",
-                        _buildTimeAnalysis(),
-                        theme,
-                        isDark,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _animate(
-                      delay: 0.3,
-                      child: _buildSectionTitle("ADMINISTRATIVE TOOLS", theme),
-                    ),
-                    _buildToolsGrid(theme, isDark),
-                    const SizedBox(height: 60),
-                  ],
-                ),
-              ),
+            ),
             ],
           ),
         ],
@@ -346,8 +377,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   Widget _buildHeroSection(ThemeData theme, bool isDark) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16), // Reduced from 24
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
         borderRadius: BorderRadius.circular(30),

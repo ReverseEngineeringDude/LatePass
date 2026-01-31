@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latepass/admin/student_detail_history_page.dart';
+import 'package:latepass/shared/skeleton_loader.dart';
 
 class LateComersLeaderboardPage extends StatefulWidget {
   const LateComersLeaderboardPage({super.key});
@@ -139,7 +140,7 @@ class _LateComersLeaderboardPageState extends State<LateComersLeaderboardPage> {
           _buildToggle(theme, isDark),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? _buildSkeletonList()
                 : _leaderboardData.isEmpty
                     ? _buildEmptyState(theme)
                     : ListView.builder(
@@ -153,6 +154,50 @@ class _LateComersLeaderboardPageState extends State<LateComersLeaderboardPage> {
           ),
         ],
       ),
+    );
+  }
+
+
+
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: 8, // Show 8 skeleton items
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 0,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withOpacity(0.03)
+              : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Rank Circle Skeleton
+                const SkeletonContainer.square(size: 40, borderRadius: BorderRadius.all(Radius.circular(20))),
+                const SizedBox(width: 16),
+                // Name & Dept Skeleton
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       SkeletonContainer.rectangular(height: 16, width: 120),
+                       SizedBox(height: 8),
+                       SkeletonContainer.rectangular(height: 12, width: 80),
+                    ],
+                  ),
+                ),
+                // Score Badge Skeleton
+                const SkeletonContainer.rectangular(height: 30, width: 40, borderRadius: BorderRadius.all(Radius.circular(12))),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

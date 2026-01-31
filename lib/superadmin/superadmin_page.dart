@@ -14,6 +14,8 @@ import 'package:latepass/superadmin/manage_admins_page.dart';
 import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 import 'package:latepass/shared/glass_card.dart';
+import 'package:latepass/admin/components/sticky_card_stack.dart';
+import 'dart:ui';
 
 
 class SuperAdminPage extends StatefulWidget {
@@ -30,9 +32,11 @@ class SuperAdminPage extends StatefulWidget {
   State<SuperAdminPage> createState() => _SuperAdminPageState();
 }
 
-class _SuperAdminPageState extends State<SuperAdminPage> {
+class _SuperAdminPageState extends State<SuperAdminPage> with TickerProviderStateMixin {
   String _selectedDept = 'All Departments';
   late Future<QuerySnapshot> _studentsFuture;
+  late AnimationController _entryController;
+  late ScrollController _scrollController;
 
   final List<String> _departments = [
     'All Departments',
@@ -46,8 +50,46 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   @override
   void initState() {
     super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _scrollController = ScrollController();
+    _entryController.forward();
+
     // Pre-fetch student registry for high-performance chart lookups
     _studentsFuture = FirebaseFirestore.instance.collection('students').get();
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Widget _animate({required Widget child, required double delay}) {
+    return AnimatedBuilder(
+      animation: _entryController,
+      builder: (context, child) {
+        final curve = CurvedAnimation(
+          parent: _entryController,
+          curve: Interval(
+            delay,
+            (delay + 0.5).clamp(0.0, 1.0),
+            curve: Curves.easeOutQuart,
+          ),
+        );
+        return Opacity(
+          opacity: curve.value,
+          child: Transform.translate(
+            offset: Offset(0, 30 * (1 - curve.value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
   }
 
   // Logic for scanning student IDs
@@ -284,93 +326,96 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               ),
             ),
 
+          // Layer 1: Sticky Cards (Background)
+          StickyCardsBackground(
+            controller: _scrollController,
+            topPadding: 20.0,
+            collapsedHeight: 240.0,
+            customSpacers: [330.0, 340.0], // Increased 1st gap for large Header
+            cardStackOffset: 15.0,
+            children: [
+               _animate(
+                 delay: 0.1,
+                 child: _buildHeader(theme, isDark),
+               ),
+               
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 16),
+                 child: GlassCard(
+                   padding: const EdgeInsets.all(12),
+                   child: _animate(
+                     delay: 0.25,
+                     child: _buildWeeklyTrend(theme, isDark),
+                   ),
+                 ),
+               ),
+               
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 16),
+                 child: GlassCard(
+                   padding: const EdgeInsets.all(12),
+                   child: _animate(
+                     delay: 0.25,
+                     child: _buildEngagementIntensity(theme, isDark),
+                   ),
+                 ),
+               ),
+            ],
+          ),
+
+          // Layer 2: Foreground Scroll View
           CustomScrollView(
+            controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
-            // Header Section
-            SliverToBoxAdapter(
-              child: _buildHeader(theme, isDark),
-            ),
-            
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              // Spacer
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 900), // Increased to match new stack height
+              ),
 
-            // Weekly Trend Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GlassCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          Text(
-                            "SYSTEM INSIGHTS",
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: isDark ? Colors.white38 : theme.colorScheme.primary,
-                              letterSpacing: 1.5,
-                              fontWeight: FontWeight.w900,
-                            ),
+              // System Control Tools
+               SliverToBoxAdapter(
+                 child: ClipRRect(
+                   child: BackdropFilter(
+                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                     child: Container(
+                       color: isDark 
+                           ? const Color(0xFF0F172A).withOpacity(0.5) 
+                           : theme.colorScheme.surface.withOpacity(0.5), 
+                       child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 15),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                          child: Row(
+                            children: [
+                              Text(
+                                "SYSTEM CONTROL TOOLS",
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: isDark
+                                      ? Colors.white38
+                                      : theme.colorScheme.primary,
+                                  letterSpacing: 1.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildWeeklyTrend(theme, isDark),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-            // Engagement Intensity Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GlassCard(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildEngagementIntensity(theme, isDark),
-                ),
-              ),
-            ),
-
-
-
-
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        "SYSTEM CONTROL TOOLS",
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: isDark
-                              ? Colors.white38
-                              : theme.colorScheme.primary,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.w900,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
+              GridView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                     childAspectRatio: 1.1,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                  itemCount: menuItems.length,
+                  itemBuilder: (context, index) {
                       final item = menuItems[index];
                       return _buildMenuCard(
                         theme,
@@ -380,13 +425,16 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                         color: item["color"],
                         onTap: () => _navigateTo(item["page"]),
                       );
-                    },
-                    childCount: menuItems.length,
-                  ),
-                ),
+                  },
               ),
               
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                 ),
+               ),
+               ),
             ],
           ),
         ],
@@ -394,33 +442,11 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
     );
   }
 
+  // Helper method removed as now part of stack
+  /*
   Widget _buildAnalyticsSection(ThemeData theme, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const SizedBox(width: 8),
-              Text(
-                "SYSTEM INSIGHTS",
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: isDark ? Colors.white38 : theme.colorScheme.primary,
-                  letterSpacing: 1.5,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildWeeklyTrend(theme, isDark),
-          const SizedBox(height: 16),
-          _buildEngagementIntensity(theme, isDark),
-        ],
-      ),
-    );
-  }
+  */
 
   Widget _buildWeeklyTrend(ThemeData theme, bool isDark) {
     return SizedBox(
