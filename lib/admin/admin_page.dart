@@ -16,7 +16,6 @@ import 'package:latepass/superadmin/admin_model.dart';
 import 'package:latepass/admin/late_comers_leaderboard_page.dart';
 import 'package:latepass/shared/glass_card.dart';
 
-
 class AdminPage extends StatefulWidget {
   final Admin? admin;
 
@@ -185,7 +184,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildSliverAppBar(theme, isDark),
-              
+
               // Hero Section
               SliverToBoxAdapter(
                 child: _animate(
@@ -210,12 +209,12 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-               // Metric Card
+              // Metric Card
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: GlassCard(
-                     padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: _animate(
                       delay: 0.25,
                       child: _buildMetricCard(
@@ -228,11 +227,6 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-
-
-
-
-
 
               SliverToBoxAdapter(
                 child: Column(
