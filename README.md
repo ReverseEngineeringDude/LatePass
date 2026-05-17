@@ -11,20 +11,22 @@ A comprehensive Flutter-based mobile application designed to streamline and mana
 -   **Multi-Tiered Access Control**:
     -   **Student View**: Allows students to view their own attendance records.
     -   **Admin/Faculty View**: Enables administrators and faculty to manage student records, issue digital late passes, and view attendance reports.
-    -   **Superadmin View**: Provides full control over the system, including the ability to add or remove other administrators.
+    -   **Superadmin View**: Provides full system control with privileged dashboard access.
+-   **Advanced UI/UX Dashboard**:
+    -   **Sticky Card Stack**: Interactive dashed-themed sticky cards that stack dynamically on scroll.
+    -   **Glassmorphism**: Premium frosted-glass effects for administrative tools and metrics.
+    -   **Skeleton Loading**: Smooth shimmer-effect skeleton loaders for data-heavy sections like the Leaderboard.
+-   **Attendance & Reporting**:
+    -   Live attendance tracking with department-based filtering.
+    -   Real-time system insights (Weekly Activity, Peak Engagement Intensity).
+    -   ID scanning functionality for quick check-ins.
 -   **Secure Authentication**:
     -   Admins and Superadmins log in securely using Email/Password or Google Sign-In.
     -   Students access their records via a guest/anonymous sign-in.
-    -   Login sessions are persisted, allowing users to stay logged in across app restarts.
+    -   Login sessions are persisted across app restarts.
 -   **Student Management**:
-    -   Manually add individual student records.
-    -   Bulk import students from a CSV or Excel (`.xlsx`) file.
-    -   Remove students from the database.
--   **Attendance Tracking**:
-    -   (Functionality to be built) Admins can mark students as tardy or absent.
-    -   (Functionality to be built) ID scanning (e.g., barcodes) for quick check-ins.
--   **Reporting**:
-    -   (Functionality to be built) Generate and export attendance reports.
+    -   Bulk import students from CSV or Excel (`.xlsx`) files.
+    -   Individual record management (Add/Remove/Report).
 
 ## 📂 Project Structure
 
